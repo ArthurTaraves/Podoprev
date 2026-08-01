@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(npm run dev)",
+      "PowerShell(Invoke-WebRequest -Uri http://localhost:5173 -UseBasicParsing -TimeoutSec 5)"
+    ]
+  }
+}

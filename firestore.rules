@@ -1,0 +1,267 @@
+rules_version = '2';
+
+// Regras de segurança do PodoPrev.
+//
+// Dois papéis usam o mesmo projeto Firebase:
+// - Profissional (isOwner): dono de patients/visits/consents/photos que criou.
+// - Paciente (isLinkedPatient): só lê os próprios dados clínicos, depois de
+//   vincular a conta via código de convite (patients.linkedUserId == seu uid).
+//   Pacientes nunca escrevem dados clínicos, só leem.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(professionalId) {
+      return isSignedIn() && request.auth.uid == professionalId;
+    }
+
+    function isLinkedPatient(patientId) {
+      // .get(field, default) evita erro de avaliação quando o paciente ainda não foi
+      // vinculado a nenhuma conta (o campo linkedUserId nem existe no documento nesse
+      // caso — acessá-lo direto com `.linkedUserId` lança erro, que as regras tratam
+      // como "negado", mesmo que a intenção fosse só "ainda não vinculado").
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/patients/$(patientId)).data.get('linkedUserId', null) == request.auth.uid;
+    }
+
+    // Usada só por appointmentSlots (que não tem patientId) para confirmar que
+    // quem está criando a reserva é de fato um paciente vinculado a esse profissional.
+    function isPatientOfProfessional(professionalId) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/patientAccounts/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/patientAccounts/$(request.auth.uid)).data.professionalId == professionalId;
+    }
+
+    // --- Onda 4 (troca de profissional) ---
+    // patient_professional_links/{patientId}_{professionalId} é sempre acessado por
+    // id determinístico (get/exists), nunca por query de lista — por isso as duas
+    // funções abaixo não têm nenhuma restrição de provabilidade, mesmo referenciando
+    // campos que uma query normal não poderia usar sem filtro de igualdade.
+
+    // Qualquer profissional que já teve (ativo ou não) um vínculo formal com esse
+    // paciente continua podendo ler os dados básicos de identificação do prontuário
+    // (nome/CPF/telefone) — precisa disso para dar sentido aos próprios atendimentos
+    // antigos. Não dá acesso a nenhum dado clínico (visits/consents/photos/preAnamnesis
+    // continuam exigindo consentimento explícito via hasConsentedHistoryAccess).
+    function wasEverLinkedProfessional(patientId) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/patient_professional_links/$(patientId + '_' + request.auth.uid));
+    }
+
+    // Consentimento de compartilhamento de histórico clínico — concedido pelo
+    // paciente ao TROCAR para um novo profissional (passo 2 do fluxo), revogável a
+    // qualquer momento. Como é um get() sobre o próprio vínculo do profissional que
+    // está fazendo a consulta (id determinístico), reavalia ao vivo em toda leitura —
+    // uma revogação tem efeito imediato na próxima tentativa de leitura, sem cache.
+    function hasConsentedHistoryAccess(patientId) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/patient_professional_links/$(patientId + '_' + request.auth.uid)) &&
+        get(/databases/$(database)/documents/patient_professional_links/$(patientId + '_' + request.auth.uid)).data.get('status', '') == 'active' &&
+        get(/databases/$(database)/documents/patient_professional_links/$(patientId + '_' + request.auth.uid)).data.get('historyAccessConsented', false) == true;
+    }
+
+    // --- users (perfil do profissional) ---
+    match /users/{userId} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // --- availability (dias/horários de atendimento configurados pelo profissional) ---
+    match /availability/{professionalId} {
+      allow read, write: if isOwner(professionalId);
+    }
+
+    // --- patientAccounts (perfil do paciente) ---
+    match /patientAccounts/{uid} {
+      allow read: if isSignedIn() && request.auth.uid == uid;
+      allow create: if isSignedIn() && request.auth.uid == uid;
+      // Único update permitido: o próprio paciente, só o campo professionalId, na
+      // troca de profissional (Onda 4) — mantido em sincronia, na mesma transação,
+      // com patients.professionalId e o novo patient_professional_links ativo.
+      allow update: if isSignedIn() && request.auth.uid == uid
+        && exists(/databases/$(database)/documents/users/$(request.resource.data.professionalId))
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['professionalId']);
+      allow delete: if false;
+    }
+
+    // --- patientInvites (código de convite gerado pelo profissional) ---
+    match /patientInvites/{code} {
+      // Leitura pública: o paciente precisa validar o código antes de criar a conta
+      // (ainda não autenticado). O documento só expõe ids opaços, sem dado clínico.
+      allow read: if true;
+      allow create: if isOwner(request.resource.data.professionalId);
+      // Resgate: só marca used=true uma vez, vinculando ao uid de quem está resgatando.
+      allow update: if isSignedIn()
+        && resource.data.used == false
+        && request.resource.data.used == true
+        && request.resource.data.usedByUid == request.auth.uid;
+      allow delete: if false;
+    }
+
+    // --- patients ---
+    match /patients/{patientId} {
+      // wasEverLinkedProfessional: profissional que já foi dono deste prontuário
+      // continua lendo os dados básicos de identificação, mesmo depois de uma troca
+      // (ver comentário na função acima) — nunca ganha escrita.
+      allow read: if isOwner(resource.data.professionalId) || isLinkedPatient(patientId) || wasEverLinkedProfessional(patientId);
+      allow create: if isOwner(request.resource.data.professionalId);
+      allow update: if (isOwner(resource.data.professionalId) && isOwner(request.resource.data.professionalId))
+        // Vínculo de conta: o próprio paciente grava seu uid uma única vez.
+        // .get(field, default) porque linkedUserId não existe no documento até este
+        // momento (ver comentário em isLinkedPatient).
+        || (isSignedIn()
+            && resource.data.get('linkedUserId', null) == null
+            && request.resource.data.linkedUserId == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['linkedUserId', 'updatedAt']))
+        // Troca de profissional (Onda 4): só o próprio paciente, só o campo
+        // professionalId (+updatedAt), e só para um profissional que de fato existe.
+        // Não depende de nenhum documento irmão criado na mesma transação (ver
+        // comentário em firebase/professionalSwitch.ts sobre a ordem de leitura).
+        || (isLinkedPatient(patientId)
+            && exists(/databases/$(database)/documents/users/$(request.resource.data.professionalId))
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['professionalId', 'updatedAt']));
+      allow delete: if false; // exclusão é lógica (isActive=false) para preservar histórico clínico
+    }
+
+    // --- visits (anamnese + mapeamento + checklist + score de um atendimento) ---
+    match /visits/{visitId} {
+      allow read: if isOwner(resource.data.professionalId) || isLinkedPatient(resource.data.patientId) || hasConsentedHistoryAccess(resource.data.patientId);
+      allow create: if isOwner(request.resource.data.professionalId);
+      allow update: if isOwner(resource.data.professionalId) && isOwner(request.resource.data.professionalId);
+      allow delete: if false;
+    }
+
+    // --- consents (termos LGPD de dados e de imagem) ---
+    match /consents/{consentId} {
+      // O paciente também pode ler os próprios termos (transparência prevista pela
+      // LGPD); só o profissional pode criar um novo consentimento.
+      allow read: if isOwner(resource.data.professionalId) || isLinkedPatient(resource.data.patientId) || hasConsentedHistoryAccess(resource.data.patientId);
+      allow create: if isOwner(request.resource.data.professionalId);
+      allow update, delete: if false; // consentimento é um registro histórico imutável
+    }
+
+    // --- preAnamnesis (preenchida pelo paciente, aguarda validação do profissional) ---
+    // Único ponto do sistema em que o paciente escreve dado clínico (todo o resto
+    // dessas regras é "paciente só lê" — ver comentário no topo do arquivo). A
+    // condição extra no create garante que ele só consiga vincular a pré-anamnese
+    // ao profissional que já é o dono do seu próprio prontuário (patients/{patientId}),
+    // nunca a outro.
+    match /preAnamnesis/{preAnamnesisId} {
+      allow read: if isOwner(resource.data.professionalId) || isLinkedPatient(resource.data.patientId) || hasConsentedHistoryAccess(resource.data.patientId);
+      allow create: if isLinkedPatient(request.resource.data.patientId)
+        && request.resource.data.professionalId ==
+           get(/databases/$(database)/documents/patients/$(request.resource.data.patientId)).data.professionalId
+        && request.resource.data.status == 'aguardando_validacao'
+        && request.resource.data.preenchidoPor == request.auth.uid;
+      // O profissional revisa/valida (pode reescrever tudo, é o dono do dado clínico).
+      // O paciente só pode corrigir a própria pré-anamnese enquanto ela ainda não foi
+      // validada, e só o campo `anamnesis` — nunca status/professionalId/validadoPor.
+      allow update: if isOwner(resource.data.professionalId)
+        || (isLinkedPatient(resource.data.patientId)
+            && resource.data.status == 'aguardando_validacao'
+            && request.resource.data.status == 'aguardando_validacao'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['anamnesis']));
+      allow delete: if false;
+    }
+
+    // --- appointments (dado real do agendamento, com patientId) ---
+    // --- appointmentSlots (espelho sem nenhum dado pessoal — só ocupação) ---
+    // Duas coleções com o mesmo id determinístico (professionalId_data_hora).
+    // appointments carrega o vínculo com o paciente e segue o mesmo padrão de
+    // isOwner/isLinkedPatient já usado no resto do arquivo. appointmentSlots
+    // existe justamente pra o paciente conseguir consultar quais horários de
+    // OUTROS pacientes estão ocupados, sem nunca ler patientId de terceiros —
+    // por isso sua leitura é liberada a qualquer usuário autenticado (o conteúdo
+    // não é sensível: só diz que um horário está ocupado, não por quem).
+    match /appointments/{slotId} {
+      allow read: if isOwner(resource.data.professionalId) || isLinkedPatient(resource.data.patientId);
+      allow create: if isLinkedPatient(request.resource.data.patientId)
+        && request.resource.data.professionalId ==
+           get(/databases/$(database)/documents/patients/$(request.resource.data.patientId)).data.professionalId
+        && request.resource.data.status == 'reservado_temporario';
+      allow update: if isOwner(resource.data.professionalId)
+        || (isLinkedPatient(resource.data.patientId)
+            && ((resource.data.status == 'reservado_temporario'
+                 && resource.data.expiresAt > request.time.toMillis()
+                 && request.resource.data.status == 'confirmado'
+                 && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'confirmedAt']))
+                || (request.resource.data.status == 'cancelado'
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']))));
+      allow delete: if false;
+    }
+
+    match /appointmentSlots/{slotId} {
+      allow read: if isSignedIn();
+      allow create: if isPatientOfProfessional(request.resource.data.professionalId)
+        && request.resource.data.status == 'reservado_temporario';
+      // Não há patientId aqui pra checar diretamente — a identidade de quem tem
+      // permissão de atualizar vem do documento irmão em appointments (mesmo id).
+      allow update: if isSignedIn()
+        && (isOwner(get(/databases/$(database)/documents/appointments/$(slotId)).data.professionalId)
+            || isLinkedPatient(get(/databases/$(database)/documents/appointments/$(slotId)).data.patientId))
+        && ((resource.data.status == 'reservado_temporario' && request.resource.data.status == 'confirmado')
+            || request.resource.data.status == 'cancelado');
+      allow delete: if false;
+    }
+
+    // --- professionalProfiles (perfil público, para busca de profissionais) ---
+    // Coleção separada de `users` de propósito: `users/{uid}` guarda email e
+    // registrationNumber, que nunca podem ficar públicos, e o Firestore não tem
+    // segurança por campo — só documento inteiro. Leitura liberada em 3 casos:
+    // o próprio profissional (edição), qualquer usuário logado quando o perfil
+    // está marcado como público (busca), ou o paciente já vinculado àquele
+    // profissional (tela "Seu podólogo", mesmo perfil não sendo público).
+    match /professionalProfiles/{professionalId} {
+      allow read: if isOwner(professionalId)
+        || (isSignedIn() && resource.data.isPubliclyVisible == true)
+        || isPatientOfProfessional(professionalId);
+      allow write: if isOwner(professionalId);
+    }
+
+    // --- photos (metadados; os arquivos ficam no Storage) ---
+    match /photos/{photoId} {
+      allow read: if isOwner(resource.data.professionalId) || isLinkedPatient(resource.data.patientId) || hasConsentedHistoryAccess(resource.data.patientId);
+      allow create: if isOwner(request.resource.data.professionalId);
+      allow update, delete: if false;
+    }
+
+    // --- patient_professional_links (Onda 4) ---
+    // Id determinístico {patientId}_{professionalId} — nunca listado em query, só
+    // lido/escrito por get() direto (ver comentário nas funções isSignedIn acima).
+    // Só o paciente escreve (cria e atualiza) — nenhuma regra dá ao profissional
+    // caminho de escrita aqui, de propósito: controle de compartilhamento é 100% do
+    // paciente. O create cobre tanto "abrir um vínculo novo" quanto "encerrar
+    // retroativamente o vínculo original" (paciente que nunca tinha esse documento
+    // porque se cadastrou antes da Onda 4 — ver comentário em professionalSwitch.ts).
+    match /patient_professional_links/{linkId} {
+      allow read: if isSignedIn() && (resource.data.professionalId == request.auth.uid || isLinkedPatient(resource.data.patientId));
+      allow create: if isLinkedPatient(request.resource.data.patientId)
+        && linkId == (request.resource.data.patientId + '_' + request.resource.data.professionalId)
+        && exists(/databases/$(database)/documents/users/$(request.resource.data.professionalId));
+      // Update restrito a duas transições específicas, cada uma mexendo só nos
+      // campos que ela precisa — nunca um rewrite livre do documento:
+      // (a) encerrar o vínculo antigo na troca (status active -> inactive)
+      // (b) revogar um compartilhamento já concedido (historyAccessConsented true -> false)
+      allow update: if isLinkedPatient(resource.data.patientId)
+        && ((request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'unlinkedAt'])
+             && resource.data.status == 'active' && request.resource.data.status == 'inactive')
+            || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['historyAccessConsented', 'revokedAt'])
+                && resource.data.historyAccessConsented == true && request.resource.data.historyAccessConsented == false));
+      allow delete: if false;
+    }
+
+    // --- switch_history (Onda 4) ---
+    // Log imutável de cada troca — só o paciente lê (consulta por patientId, filtro
+    // único, sempre provável) e só ele cria, no momento da própria troca. Nunca é
+    // atualizado depois (uma revogação de consentimento não reescreve este log —
+    // isso vive só em patient_professional_links.historyAccessConsented).
+    match /switch_history/{entryId} {
+      allow read: if isLinkedPatient(resource.data.patientId);
+      allow create: if isLinkedPatient(request.resource.data.patientId);
+      allow update, delete: if false;
+    }
+  }
+}

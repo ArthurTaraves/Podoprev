@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(\\(Get-Content \".\\\\src\\\\demo\\\\store.ts\" | Measure-Object -Line\\).Lines)",
+      "PowerShell(Get-Process node -ErrorAction SilentlyContinue)",
+      "PowerShell(Rename-Item -Path \".env.local\" -NewName \".env.local.bak\" -Force)"
+    ]
+  }
+}

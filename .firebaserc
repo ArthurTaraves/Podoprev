@@ -1,0 +1,16 @@
+{
+  "projects": {},
+  "targets": {
+    "podeprev": {
+      "hosting": {
+        "production": [
+          "podeprev"
+        ],
+        "demo": [
+          "podeprev-demo"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}
