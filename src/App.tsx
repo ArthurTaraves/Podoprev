@@ -17,6 +17,7 @@ const PatientRecordPage = lazy(() => import('./pages/patients/PatientRecord').th
 const ConsentPage = lazy(() => import('./pages/patients/ConsentPage').then((m) => ({ default: m.ConsentPage })));
 const NewVisitWizard = lazy(() => import('./pages/visits/NewVisitWizard').then((m) => ({ default: m.NewVisitWizard })));
 const AvailabilitySettingsPage = lazy(() => import('./pages/professional/AvailabilitySettings').then((m) => ({ default: m.AvailabilitySettingsPage })));
+const ProfessionalValidationPage = lazy(() => import('./pages/professional/ProfessionalValidation').then((m) => ({ default: m.ProfessionalValidationPage })));
 const PatientRegisterPage = lazy(() => import('./pages/patientApp/PatientRegister').then((m) => ({ default: m.PatientRegisterPage })));
 const PatientHomePage = lazy(() => import('./pages/patientApp/PatientHome').then((m) => ({ default: m.PatientHomePage })));
 const PatientCarePage = lazy(() => import('./pages/patientApp/PatientCare').then((m) => ({ default: m.PatientCarePage })));
@@ -102,6 +103,14 @@ function App() {
           element={
             <ProtectedRoute>
               <AvailabilitySettingsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/app/professional-info"
+          element={
+            <ProtectedRoute>
+              <ProfessionalValidationPage />
             </ProtectedRoute>
           }
         />

@@ -144,9 +144,12 @@ export function PatientHomePage() {
               {professionalProfile.city}{professionalProfile.neighborhood ? ` · ${professionalProfile.neighborhood}` : ''}
             </p>
           )}
-          <Link to="/patient/search" className="btn btn-outline btn-sm" style={{ marginTop: 8 }}>
-            Trocar profissional
+          <Link to="/patient/search" className="btn btn-secondary btn-block" style={{ marginTop: 10 }}>
+            🔁 Trocar profissional
           </Link>
+          <p className="hint" style={{ marginTop: 8, marginBottom: 0 }}>
+            Seu histórico acompanha você. Mesmo trocando de profissional, seus registros permanecem disponíveis.
+          </p>
         </div>
       </div>
 

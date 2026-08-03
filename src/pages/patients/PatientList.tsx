@@ -2,27 +2,56 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { listPatients } from '../../firebase/patients';
-import { latestVisitByPatient, listVisitsByProfessional } from '../../firebase/visits';
+import { latestVisitByPatient, listVisitsByProfessional, previousVisitByPatient } from '../../firebase/visits';
 import { listPendingPreAnamnesisByProfessional } from '../../firebase/preAnamnesis';
+import { getPatientProfessionalLink } from '../../firebase/patientProfessionalLinks';
 import { calculateAge } from '../../domain/riskScore';
 import { computeActionStatus, sortByPriority, type PatientActionStatus } from '../../domain/actionQueue';
+import { describeAttentionEvolution } from '../../domain/evolution';
 import { RiskBadge } from '../../components/ui/RiskBadge';
+
+// Indicador de descobribilidade (Onda 5): sinaliza, direto na lista, quais
+// pacientes têm um vínculo vindo de troca — com ou sem compartilhamento
+// autorizado — sem precisar abrir o prontuário pra descobrir. Puramente visual,
+// não influencia nenhuma regra de acesso (essa continua só nas regras do Firestore).
+type SwitchBadge = 'compartilhado' | 'nao_autorizado' | null;
 
 export function PatientListPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [statuses, setStatuses] = useState<PatientActionStatus[]>([]);
   const [pendingPreAnamnesisIds, setPendingPreAnamnesisIds] = useState<Set<string>>(new Set());
+  const [switchBadges, setSwitchBadges] = useState<Record<string, SwitchBadge>>({});
+  const [positiveEvolutionIds, setPositiveEvolutionIds] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user) return;
     Promise.all([listPatients(user.uid), listVisitsByProfessional(user.uid), listPendingPreAnamnesisByProfessional(user.uid)])
-      .then(([patients, visits, pendingPreAnamnesis]) => {
+      .then(async ([patients, visits, pendingPreAnamnesis]) => {
         const latestByPatient = latestVisitByPatient(visits);
+        const previousByPatient = previousVisitByPatient(visits);
         setStatuses(sortByPriority(patients.map((p) => computeActionStatus(p, latestByPatient.get(p.id) ?? null))));
         setPendingPreAnamnesisIds(new Set(pendingPreAnamnesis.map((p) => p.patientId)));
+
+        const positive = new Set<string>();
+        for (const p of patients) {
+          const latest = latestByPatient.get(p.id);
+          const previous = previousByPatient.get(p.id);
+          if (latest && describeAttentionEvolution(latest.risk.level, previous?.risk.level ?? null).trend === 'melhora') {
+            positive.add(p.id);
+          }
+        }
+        setPositiveEvolutionIds(positive);
+
+        const links = await Promise.all(patients.map((p) => getPatientProfessionalLink(p.id, user.uid)));
+        const badges: Record<string, SwitchBadge> = {};
+        links.forEach((link, i) => {
+          if (!link?.previousProfessionalId) return;
+          badges[patients[i].id] = link.historyAccessConsented ? 'compartilhado' : 'nao_autorizado';
+        });
+        setSwitchBadges(badges);
       })
       .finally(() => setLoading(false));
   }, [user]);
@@ -71,13 +100,28 @@ export function PatientListPage() {
                   <tr key={s.patient.id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/app/patients/${s.patient.id}`)}>
                     <td>
                       {s.patient.fullName}
-                      {pendingPreAnamnesisIds.has(s.patient.id) && (
-                        <div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+                        {pendingPreAnamnesisIds.has(s.patient.id) && (
                           <span className="badge badge-moderate" style={{ fontSize: 11 }}>
                             🕓 Anamnese pendente
                           </span>
-                        </div>
-                      )}
+                        )}
+                        {switchBadges[s.patient.id] === 'compartilhado' && (
+                          <span className="badge badge-low" style={{ fontSize: 11 }}>
+                            🔗 Histórico compartilhado
+                          </span>
+                        )}
+                        {switchBadges[s.patient.id] === 'nao_autorizado' && (
+                          <span className="badge badge-high" style={{ fontSize: 11 }}>
+                            🔒 Compartilhamento não autorizado
+                          </span>
+                        )}
+                        {positiveEvolutionIds.has(s.patient.id) && (
+                          <span className="badge badge-low" style={{ fontSize: 11 }}>
+                            ↓ Evolução positiva
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td>{calculateAge(s.patient.birthDate)} anos</td>
                     <td>{s.patient.phone}</td>

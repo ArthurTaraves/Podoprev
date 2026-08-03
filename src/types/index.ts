@@ -327,6 +327,33 @@ export interface SwitchHistoryEntry {
   historyShared: boolean;
 }
 
+// --- Validação profissional (etapa complementar do cadastro) ---
+// Coleção separada de `users` e de `professionalProfiles` de propósito: `users`
+// é usado por autenticação/roteamento (não mexer), `professionalProfiles` é o
+// perfil PÚBLICO usado pela busca de profissionais (não mexer). Esta é uma
+// terceira coisa, isolada — dado interno, nunca exposto na busca, com um único
+// dono. Puramente demonstrativo: não existe fluxo real de aprovação nem área de
+// administrador — `status` começa e permanece `pendente` neste TCC.
+export type ProfessionalValidationStatus = 'pendente' | 'aprovado' | 'rejeitado';
+
+export interface ProfessionalValidation {
+  professionalId: string; // = doc id = uid
+  fullName: string;
+  displayName: string;
+  city: string;
+  state: string;
+  phone: string;
+  institution: string;
+  graduationYear: string;
+  registrationNumber?: string;
+  specialties: Specialty[]; // reaproveita o tipo já existente (Onda 4)
+  certificateFileName?: string;
+  certificateUrl?: string; // local (URL.createObjectURL) — Storage não configurado, mesmo padrão de PatientPhoto
+  status: ProfessionalValidationStatus;
+  submittedAt: number;
+  updatedAt: number;
+}
+
 // --- Orientações de cuidado (viram lembretes no app do paciente) ---
 
 export interface CareInstruction {

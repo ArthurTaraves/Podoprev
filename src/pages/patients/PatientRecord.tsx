@@ -176,6 +176,22 @@ export function PatientRecordPage() {
         </div>
       )}
 
+      {previousProfessionalName && (
+        <div className={historyShared ? 'info-banner' : 'alert-banner'} style={{ marginBottom: 16, flexDirection: 'column' }}>
+          {historyShared ? (
+            <>
+              <strong>Este paciente possui histórico compartilhado por outro profissional.</strong>
+              <p style={{ margin: '4px 0 0' }}>Profissional anterior: {previousProfessionalName}</p>
+            </>
+          ) : (
+            <>
+              <strong>Este paciente optou por não compartilhar o histórico anterior.</strong>
+              <p style={{ margin: '4px 0 0' }}>Profissional anterior: {previousProfessionalName}</p>
+            </>
+          )}
+        </div>
+      )}
+
       <div className="tabs">
         <button className={`tab-btn ${tab === 'dados' ? 'active' : ''}`} onClick={() => setTab('dados')}>
           Dados pessoais

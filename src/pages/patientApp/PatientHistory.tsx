@@ -128,12 +128,18 @@ export function PatientHistoryPage() {
         </div>
       )}
 
-      {switchHistory.length > 0 && (
-        <div style={{ marginBottom: 20 }}>
-          <h3 style={{ marginBottom: 8 }}>Histórico de profissionais</h3>
-          <p className="hint" style={{ marginTop: 0, marginBottom: 12 }}>
-            A troca de profissional não apaga seus registros. Você controla o compartilhamento das suas informações.
-          </p>
+      <div style={{ marginBottom: 20 }}>
+        <h3 style={{ marginBottom: 8 }}>Histórico de profissionais</h3>
+        <p className="hint" style={{ marginTop: 0, marginBottom: 12 }}>
+          A troca de profissional não apaga seus registros. Você controla o compartilhamento do seu histórico e pode
+          revogar autorizações a qualquer momento.
+        </p>
+        {switchHistory.length === 0 ? (
+          <div className="card empty-state">
+            Você ainda não trocou de profissional.
+            <p className="hint" style={{ marginTop: 6, marginBottom: 0 }}>Quando uma troca acontecer, ela aparecerá aqui.</p>
+          </div>
+        ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {switchHistory.map((entry) => {
               const isCurrentRelationship = entry.newProfessionalId === patientAccount?.professionalId;
@@ -167,8 +173,8 @@ export function PatientHistoryPage() {
               );
             })}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       <h3>Atendimentos</h3>
       {visits.length === 0 ? (

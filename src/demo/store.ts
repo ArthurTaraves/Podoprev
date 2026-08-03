@@ -13,6 +13,7 @@ import type {
   PreAnamnesis,
   Professional,
   ProfessionalProfile,
+  ProfessionalValidation,
   SwitchHistoryEntry,
   Visit,
 } from '../types';
@@ -64,6 +65,7 @@ const patientProfessionalLinks = new Map<string, PatientProfessionalLink>(
   demoPatientProfessionalLinks.map((l) => [`${l.patientId}_${l.professionalId}`, { ...l }]),
 );
 let switchHistory: SwitchHistoryEntry[] = demoSwitchHistoryEntries.map((s) => ({ ...s }));
+const professionalValidations = new Map<string, ProfessionalValidation>();
 
 // --- patients ---
 
@@ -367,4 +369,25 @@ export async function demoSwitchProfessional(params: DemoSwitchProfessionalParam
   patients = patients.map((p) => (p.id === params.patientId ? { ...p, professionalId: params.newProfessionalId, updatedAt: now } : p));
   const account = patientAccounts.get(params.patientUid);
   if (account) patientAccounts.set(params.patientUid, { ...account, professionalId: params.newProfessionalId });
+}
+
+// --- validação profissional (etapa complementar de cadastro, demonstrativa) ---
+
+export async function demoGetProfessionalValidation(professionalId: string): Promise<ProfessionalValidation | null> {
+  return professionalValidations.get(professionalId) ?? null;
+}
+
+export async function demoSaveProfessionalValidation(
+  professionalId: string,
+  data: Omit<ProfessionalValidation, 'professionalId' | 'status' | 'submittedAt' | 'updatedAt'>,
+): Promise<void> {
+  const existing = professionalValidations.get(professionalId);
+  const now = Date.now();
+  professionalValidations.set(professionalId, {
+    ...data,
+    professionalId,
+    status: 'pendente',
+    submittedAt: existing?.submittedAt ?? now,
+    updatedAt: now,
+  });
 }

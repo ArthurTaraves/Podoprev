@@ -29,7 +29,9 @@ export function RegisterPage() {
     setLoading(true);
     try {
       await registerProfessional(name, email, password, registrationNumber || undefined);
-      navigate('/app/dashboard');
+      // Etapa complementar (demonstrativa) antes do painel — não faz parte da
+      // autenticação em si, só do que acontece depois dela (ver ProfessionalValidation.tsx).
+      navigate('/app/professional-info', { state: { fullNamePrefill: name } });
     } catch (err) {
       console.error(err);
       setError('Não foi possível criar a conta. Verifique o e-mail informado.');

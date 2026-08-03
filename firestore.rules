@@ -74,6 +74,14 @@ service cloud.firestore {
       allow read, write: if isOwner(professionalId);
     }
 
+    // --- professionalValidations (etapa complementar de cadastro, demonstrativa) ---
+    // Coleção isolada, separada de `users` (autenticação) e `professionalProfiles`
+    // (perfil público da busca) de propósito — não expõe nada publicamente e não
+    // tem nenhum papel de administrador que possa escrever aqui além do próprio dono.
+    match /professionalValidations/{professionalId} {
+      allow read, write: if isOwner(professionalId);
+    }
+
     // --- patientAccounts (perfil do paciente) ---
     match /patientAccounts/{uid} {
       allow read: if isSignedIn() && request.auth.uid == uid;

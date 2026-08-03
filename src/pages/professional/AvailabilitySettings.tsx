@@ -1,18 +1,27 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { v4 as uuid } from 'uuid';
 import { useAuth } from '../../context/AuthContext';
 import { getAvailability, saveAvailability } from '../../firebase/availability';
 import { listConfirmedAppointmentsByProfessional } from '../../firebase/appointments';
 import { getPatient } from '../../firebase/patients';
 import { getProfessionalProfile, saveProfessionalProfile } from '../../firebase/professionalProfiles';
+import { getProfessionalValidation } from '../../firebase/professionalValidations';
 import { emptyAvailability, emptyProfessionalProfile, SPECIALTY_OPTIONS, WEEKDAY_LABELS, WEEKDAYS } from '../../domain/factories';
 import { generateDaySlots, validateAvailability, validateScheduleBlock } from '../../domain/availability';
-import type { Appointment, Availability, AvailabilityBlock, ProfessionalProfile, ScheduleBlock, Specialty, Weekday } from '../../types';
+import type { Appointment, Availability, AvailabilityBlock, ProfessionalProfile, ProfessionalValidation, ScheduleBlock, Specialty, Weekday } from '../../types';
 
 const DURATION_OPTIONS = [30, 45, 60, 90];
 
+const VALIDATION_STATUS_LABEL: Record<ProfessionalValidation['status'], string> = {
+  pendente: '🟡 Pendente',
+  aprovado: '🟢 Aprovado',
+  rejeitado: '🔴 Rejeitado',
+};
+
 export function AvailabilitySettingsPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [availability, setAvailability] = useState<Availability | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -29,6 +38,8 @@ export function AvailabilitySettingsPage() {
   const [profile, setProfile] = useState<ProfessionalProfile | null>(null);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
+  const [validation, setValidation] = useState<ProfessionalValidation | null>(null);
+  const [validationLoading, setValidationLoading] = useState(true);
 
   useEffect(() => {
     if (!user) return;
@@ -47,6 +58,10 @@ export function AvailabilitySettingsPage() {
     });
     getProfessionalProfile(user.uid).then((p) => {
       setProfile(p ?? emptyProfessionalProfile(user.uid));
+    });
+    getProfessionalValidation(user.uid).then((v) => {
+      setValidation(v);
+      setValidationLoading(false);
     });
   }, [user]);
 
@@ -394,6 +409,65 @@ export function AvailabilitySettingsPage() {
               {profileSaving ? 'Salvando…' : 'Salvar perfil público'}
             </button>
           </div>
+        </div>
+      )}
+
+      {!validationLoading && (
+        <div className="card" style={{ marginTop: 20 }}>
+          <h3 style={{ marginTop: 0 }}>Validação Profissional</h3>
+          {!validation ? (
+            <>
+              <p className="hint" style={{ marginBottom: 12 }}>Informações profissionais não cadastradas.</p>
+              <button type="button" className="btn btn-secondary" onClick={() => navigate('/app/professional-info')}>
+                Preencher agora
+              </button>
+            </>
+          ) : (
+            <>
+              <span className="badge badge-moderate" style={{ marginBottom: 12, display: 'inline-block' }}>
+                {VALIDATION_STATUS_LABEL[validation.status]}
+              </span>
+              <div className="form-grid" style={{ marginBottom: 12 }}>
+                <div>
+                  <strong>Nome profissional exibido</strong>
+                  <p style={{ margin: '2px 0 0' }}>{validation.displayName}</p>
+                </div>
+                <div>
+                  <strong>Cidade/Estado</strong>
+                  <p style={{ margin: '2px 0 0' }}>{validation.city}/{validation.state}</p>
+                </div>
+                <div>
+                  <strong>Instituição de formação</strong>
+                  <p style={{ margin: '2px 0 0' }}>{validation.institution}</p>
+                </div>
+                <div>
+                  <strong>Ano de conclusão</strong>
+                  <p style={{ margin: '2px 0 0' }}>{validation.graduationYear}</p>
+                </div>
+                <div>
+                  <strong>Registro profissional</strong>
+                  <p style={{ margin: '2px 0 0' }}>{validation.registrationNumber || '—'}</p>
+                </div>
+                <div>
+                  <strong>Documento anexado</strong>
+                  <p style={{ margin: '2px 0 0' }}>
+                    {validation.certificateUrl ? (
+                      <a href={validation.certificateUrl} target="_blank" rel="noreferrer">{validation.certificateFileName}</a>
+                    ) : (
+                      '—'
+                    )}
+                  </p>
+                </div>
+              </div>
+              <p className="hint" style={{ marginBottom: 12 }}>
+                Seu cadastro profissional foi registrado e aguarda validação documental. Em uma versão futura, os
+                documentos enviados poderão ser analisados por um administrador responsável pela validação profissional.
+              </p>
+              <button type="button" className="btn btn-outline" onClick={() => navigate('/app/professional-info')}>
+                Editar informações
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>
