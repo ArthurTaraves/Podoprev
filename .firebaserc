@@ -1,5 +1,7 @@
 {
-  "projects": {},
+  "projects": {
+    "default": "podeprev"
+  },
   "targets": {
     "podeprev": {
       "hosting": {

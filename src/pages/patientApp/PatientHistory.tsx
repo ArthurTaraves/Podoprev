@@ -20,6 +20,34 @@ function mergeById<T extends { id: string }>(items: T[]): T[] {
   return Array.from(map.values());
 }
 
+// Helpers puros de data/duração — só apresentação, nenhum dado clínico novo.
+const MES_ABREV = ['jan.', 'fev.', 'mar.', 'abr.', 'mai.', 'jun.', 'jul.', 'ago.', 'set.', 'out.', 'nov.', 'dez.'];
+
+function mesAno(ms: number): string {
+  const d = new Date(ms);
+  return `${MES_ABREV[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+function mesesEntre(startMs: number, endMs: number): number {
+  const s = new Date(startMs);
+  const e = new Date(endMs);
+  let m = (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth());
+  if (e.getDate() < s.getDate()) m -= 1;
+  return Math.max(0, m);
+}
+
+function formatTempoAcompanhamento(meses: number): string {
+  if (meses < 1) return 'menos de 1 mês de acompanhamento';
+  if (meses === 1) return '1 mês de acompanhamento';
+  if (meses < 12) return `${meses} meses de acompanhamento`;
+  const anos = Math.floor(meses / 12);
+  const resto = meses % 12;
+  const anosLabel = anos === 1 ? '1 ano' : `${anos} anos`;
+  if (resto === 0) return `${anosLabel} de acompanhamento`;
+  const restoLabel = resto === 1 ? '1 mês' : `${resto} meses`;
+  return `${anosLabel} e ${restoLabel} de acompanhamento`;
+}
+
 export function PatientHistoryPage() {
   const { patientAccount } = useAuth();
   const [patient, setPatient] = useState<Patient | null>(null);
@@ -90,6 +118,27 @@ export function PatientHistoryPage() {
 
   if (loading) return <p>Carregando…</p>;
 
+  // --- Melhoria 1: resumo da jornada (só com dados já carregados) ---
+  const totalAtendimentos = visits.length;
+  const professionaisEnvolvidos = new Set<string>();
+  for (const v of visits) professionaisEnvolvidos.add(v.professionalId);
+  for (const s of switchHistory) {
+    professionaisEnvolvidos.add(s.previousProfessionalId);
+    professionaisEnvolvidos.add(s.newProfessionalId);
+  }
+  if (patientAccount?.professionalId) professionaisEnvolvidos.add(patientAccount.professionalId);
+  const totalProfissionais = professionaisEnvolvidos.size;
+  // visits está ordenado por data desc
+  const ultimoAtendimentoMs = totalAtendimentos > 0 ? visits[0].date : null;
+  const primeiroAtendimentoMs = totalAtendimentos > 0 ? visits[totalAtendimentos - 1].date : null;
+  const mesesAcompanhamento =
+    totalAtendimentos >= 2 && primeiroAtendimentoMs !== null && ultimoAtendimentoMs !== null
+      ? mesesEntre(primeiroAtendimentoMs, ultimoAtendimentoMs)
+      : null;
+
+  // --- Melhoria 2: trajetória de profissionais em ordem cronológica ---
+  const trajetoria = [...switchHistory].sort((a, b) => a.switchedAt - b.switchedAt);
+
   return (
     <div>
       <h1 style={{ fontSize: 20 }}>Meus atendimentos</h1>
@@ -100,6 +149,28 @@ export function PatientHistoryPage() {
           <p style={{ margin: '4px 0 0' }}>Todos os seus atendimentos permanecem disponíveis mesmo que você troque de profissional.</p>
         </div>
       </div>
+
+      {totalAtendimentos > 0 && (
+        <div className="card" style={{ marginBottom: 20 }}>
+          <h3 style={{ marginTop: 0, marginBottom: 8 }}>Sua Jornada</h3>
+          <p style={{ margin: 0 }}>
+            <strong>{totalAtendimentos}</strong> {totalAtendimentos === 1 ? 'atendimento registrado' : 'atendimentos'}
+          </p>
+          <p style={{ margin: '2px 0 0' }}>
+            <strong>{totalProfissionais}</strong> {totalProfissionais === 1 ? 'profissional' : 'profissionais'}
+          </p>
+          {mesesAcompanhamento !== null && (
+            <p style={{ margin: '10px 0 0' }}>{formatTempoAcompanhamento(mesesAcompanhamento)}</p>
+          )}
+          {totalAtendimentos >= 2 && primeiroAtendimentoMs !== null && ultimoAtendimentoMs !== null && (
+            <p className="hint" style={{ margin: '10px 0 0' }}>
+              Primeiro: {new Date(primeiroAtendimentoMs).toLocaleDateString('pt-BR')}
+              <br />
+              Último: {new Date(ultimoAtendimentoMs).toLocaleDateString('pt-BR')}
+            </p>
+          )}
+        </div>
+      )}
 
       <h3 style={{ marginTop: 0 }}>Consultas</h3>
       {showBooking ? (
@@ -140,35 +211,46 @@ export function PatientHistoryPage() {
             <p className="hint" style={{ marginTop: 6, marginBottom: 0 }}>Quando uma troca acontecer, ela aparecerá aqui.</p>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {switchHistory.map((entry) => {
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {/* nó inicial: primeiro profissional da trajetória */}
+            <div className="card">
+              <strong>● {trajetoria[0].previousProfessionalName}</strong>
+              <p className="hint" style={{ margin: '2px 0 0' }}>
+                {patient?.createdAt
+                  ? `${mesAno(patient.createdAt)} → ${mesAno(trajetoria[0].switchedAt)}`
+                  : `até ${mesAno(trajetoria[0].switchedAt)}`}
+              </p>
+            </div>
+
+            {trajetoria.map((entry, i) => {
+              const isLast = i === trajetoria.length - 1;
               const isCurrentRelationship = entry.newProfessionalId === patientAccount?.professionalId;
               // O badge reflete o estado ATUAL do compartilhamento (revogável a
               // qualquer momento), não só o que foi decidido no instante da troca —
               // entry.historyShared é o registro histórico imutável desse evento.
               const currentlyShared = isCurrentRelationship ? currentLinkConsented : entry.historyShared;
+              const fim = isLast ? 'Atual' : mesAno(trajetoria[i + 1].switchedAt);
               return (
-                <div key={entry.id} className="card">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-                    <div>
-                      De <strong>{entry.previousProfessionalName}</strong> para <strong>{entry.newProfessionalName}</strong>
-                      <p className="hint" style={{ margin: '2px 0 0' }}>{new Date(entry.switchedAt).toLocaleDateString('pt-BR')}</p>
-                    </div>
+                <div key={entry.id}>
+                  <p className="hint" style={{ margin: '4px 0', textAlign: 'center' }}>↓ troca</p>
+                  <div className="card">
+                    <strong>● {entry.newProfessionalName}{isCurrentRelationship ? ' (Atual)' : ''}</strong>
+                    <p className="hint" style={{ margin: '2px 0 8px' }}>{mesAno(entry.switchedAt)} → {fim}</p>
                     <span className={`badge ${currentlyShared ? 'badge-low' : 'badge-moderate'}`}>
                       {currentlyShared ? 'Histórico compartilhado ✓' : entry.historyShared ? 'Compartilhamento revogado' : 'Histórico não compartilhado'}
                     </span>
+                    {isCurrentRelationship && currentLinkConsented && (
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        style={{ marginTop: 10 }}
+                        disabled={revokingId === entry.newProfessionalId}
+                        onClick={() => handleRevoke(entry.newProfessionalId)}
+                      >
+                        {revokingId === entry.newProfessionalId ? 'Revogando…' : 'Revogar compartilhamento'}
+                      </button>
+                    )}
                   </div>
-                  {isCurrentRelationship && currentLinkConsented && (
-                    <button
-                      type="button"
-                      className="btn btn-outline btn-sm"
-                      style={{ marginTop: 10 }}
-                      disabled={revokingId === entry.newProfessionalId}
-                      onClick={() => handleRevoke(entry.newProfessionalId)}
-                    >
-                      {revokingId === entry.newProfessionalId ? 'Revogando…' : 'Revogar compartilhamento'}
-                    </button>
-                  )}
                 </div>
               );
             })}
