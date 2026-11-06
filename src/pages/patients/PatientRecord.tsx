@@ -192,21 +192,21 @@ export function PatientRecordPage() {
         </div>
       )}
 
-      <div className="tabs">
-        <button className={`tab-btn ${tab === 'dados' ? 'active' : ''}`} onClick={() => setTab('dados')}>
+      <div className="tabs" style={{ gap: 2 }}>
+        <button className={`tab-btn ${tab === 'dados' ? 'active' : ''}`} style={{ padding: '8px 8px', fontSize: 13 }} onClick={() => setTab('dados')}>
           Dados
         </button>
-        <button className={`tab-btn ${tab === 'evolucao' ? 'active' : ''}`} onClick={() => setTab('evolucao')}>
+        <button className={`tab-btn ${tab === 'evolucao' ? 'active' : ''}`} style={{ padding: '8px 8px', fontSize: 13 }} onClick={() => setTab('evolucao')}>
           Histórico
         </button>
-        <button className={`tab-btn ${tab === 'fotos' ? 'active' : ''}`} onClick={() => setTab('fotos')}>
+        <button className={`tab-btn ${tab === 'fotos' ? 'active' : ''}`} style={{ padding: '8px 8px', fontSize: 13 }} onClick={() => setTab('fotos')}>
           Fotos ({photos.length})
         </button>
-        <button className={`tab-btn ${tab === 'consentimentos' ? 'active' : ''}`} onClick={() => setTab('consentimentos')}>
+        <button className={`tab-btn ${tab === 'consentimentos' ? 'active' : ''}`} style={{ padding: '8px 8px', fontSize: 13 }} onClick={() => setTab('consentimentos')}>
           LGPD
         </button>
         {preAnamnesis && (
-          <button className={`tab-btn ${tab === 'pre-anamnese' ? 'active' : ''}`} onClick={() => setTab('pre-anamnese')}>
+          <button className={`tab-btn ${tab === 'pre-anamnese' ? 'active' : ''}`} style={{ padding: '8px 8px', fontSize: 13 }} onClick={() => setTab('pre-anamnese')}>
             Pré-anamnese
           </button>
         )}
