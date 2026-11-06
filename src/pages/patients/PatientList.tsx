@@ -84,65 +84,54 @@ export function PatientListPage() {
             {statuses.length === 0 ? 'Nenhum paciente cadastrado ainda.' : 'Nenhum paciente encontrado para essa busca.'}
           </div>
         ) : (
-          <div className="table-scroll">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Nome</th>
-                  <th>Idade</th>
-                  <th>Telefone</th>
-                  <th>Nível de atenção</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((s) => (
-                  <tr key={s.patient.id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/app/patients/${s.patient.id}`)}>
-                    <td>
-                      {s.patient.fullName}
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
-                        {pendingPreAnamnesisIds.has(s.patient.id) && (
-                          <span className="badge badge-moderate" style={{ fontSize: 11 }}>
-                            🕓 Anamnese pendente
-                          </span>
-                        )}
-                        {switchBadges[s.patient.id] === 'compartilhado' && (
-                          <span className="badge badge-low" style={{ fontSize: 11 }}>
-                            🔗 Histórico compartilhado
-                          </span>
-                        )}
-                        {switchBadges[s.patient.id] === 'nao_autorizado' && (
-                          <span className="badge badge-high" style={{ fontSize: 11 }}>
-                            🔒 Compartilhamento não autorizado
-                          </span>
-                        )}
-                        {positiveEvolutionIds.has(s.patient.id) && (
-                          <span className="badge badge-low" style={{ fontSize: 11 }}>
-                            ↓ Evolução positiva
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td>{calculateAge(s.patient.birthDate)} anos</td>
-                    <td>{s.patient.phone}</td>
-                    <td>
-                      {s.latestVisit ? <RiskBadge level={s.latestVisit.risk.level} /> : <span className="badge badge-moderate">Aguardando primeira avaliação</span>}
-                    </td>
-                    <td>
-                      <button
-                        className="btn btn-outline btn-sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/app/patients/${s.patient.id}`);
-                        }}
-                      >
-                        Ver prontuário completo
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div role="list">
+            {filtered.map((s, index) => (
+              <div
+                key={s.patient.id}
+                role="listitem"
+                tabIndex={0}
+                style={{
+                  cursor: 'pointer',
+                  padding: '12px 0',
+                  borderBottom: index < filtered.length - 1 ? '1px solid var(--color-border)' : 'none',
+                }}
+                onClick={() => navigate(`/app/patients/${s.patient.id}`)}
+                onKeyDown={(e) => e.key === 'Enter' && navigate(`/app/patients/${s.patient.id}`)}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                  <strong>{s.patient.fullName}</strong>
+                  <span aria-hidden="true" style={{ fontSize: 20, color: 'var(--color-text-muted)' }}>
+                    ›
+                  </span>
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--color-text-muted)', marginTop: 2 }}>
+                  {calculateAge(s.patient.birthDate)} anos · {s.patient.phone}
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 8 }}>
+                  {s.latestVisit ? <RiskBadge level={s.latestVisit.risk.level} /> : <span className="badge badge-moderate">Aguardando primeira avaliação</span>}
+                  {pendingPreAnamnesisIds.has(s.patient.id) && (
+                    <span className="badge badge-moderate" style={{ fontSize: 11 }}>
+                      🕓 Anamnese pendente
+                    </span>
+                  )}
+                  {switchBadges[s.patient.id] === 'compartilhado' && (
+                    <span className="badge badge-low" style={{ fontSize: 11 }}>
+                      🔗 Histórico compartilhado
+                    </span>
+                  )}
+                  {switchBadges[s.patient.id] === 'nao_autorizado' && (
+                    <span className="badge badge-high" style={{ fontSize: 11 }}>
+                      🔒 Compartilhamento não autorizado
+                    </span>
+                  )}
+                  {positiveEvolutionIds.has(s.patient.id) && (
+                    <span className="badge badge-low" style={{ fontSize: 11 }}>
+                      ↓ Evolução positiva
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
