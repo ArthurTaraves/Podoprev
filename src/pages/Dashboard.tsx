@@ -178,14 +178,14 @@ export function DashboardPage() {
         </div>
       </div>
 
-      <div className="quick-actions">
-        <button className="btn btn-primary" onClick={() => navigate('/app/patients/new')}>
+      <div className="quick-actions" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <button className="btn btn-primary" style={{ flex: '1 1 100%' }} onClick={() => navigate('/app/patients/new')}>
           + Cadastrar paciente
         </button>
-        <button className="btn btn-secondary" onClick={() => navigate('/app/patients')}>
+        <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => navigate('/app/patients')}>
           Iniciar nova anamnese
         </button>
-        <button className="btn btn-outline" onClick={() => navigate('/app/patients')}>
+        <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => navigate('/app/patients')}>
           Gerar relatórios
         </button>
       </div>
@@ -298,35 +298,35 @@ export function DashboardPage() {
             {recentVisits.length === 0 ? (
               <div className="empty-state">Nenhum atendimento registrado ainda.</div>
             ) : (
-              <div className="table-scroll">
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>Paciente</th>
-                      <th>Data</th>
-                      <th>Queixa principal</th>
-                      <th>Nível de atenção</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentVisits.map((v) => (
-                      <tr key={v.id}>
-                        <td>{v.patientName}</td>
-                        <td>{new Date(v.date).toLocaleDateString('pt-BR')}</td>
-                        <td>{v.anamnesis.mainComplaint || '—'}</td>
-                        <td>
-                          <RiskBadge level={v.risk.level} />
-                        </td>
-                        <td>
-                          <button className="btn btn-outline btn-sm" onClick={() => navigate(`/app/patients/${v.patientId}`)}>
-                            Ver prontuário
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div role="list">
+                {recentVisits.map((v, index) => (
+                  <div
+                    key={v.id}
+                    role="listitem"
+                    style={{
+                      padding: '12px 0',
+                      borderBottom: index < recentVisits.length - 1 ? '1px solid var(--color-border)' : 'none',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+                      <strong>{v.patientName}</strong>
+                      <span style={{ fontSize: 13, color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
+                        {new Date(v.date).toLocaleDateString('pt-BR')}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 13, color: 'var(--color-text-muted)', marginTop: 2 }}>
+                      {v.anamnesis.mainComplaint || '—'}
+                    </div>
+                    <div style={{ marginTop: 8 }}>
+                      <RiskBadge level={v.risk.level} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+                      <button className="btn btn-outline btn-sm" onClick={() => navigate(`/app/patients/${v.patientId}`)}>
+                        Ver prontuário
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
