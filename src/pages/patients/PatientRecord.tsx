@@ -157,15 +157,15 @@ export function PatientRecordPage() {
             </div>
           )}
         </div>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <button className="btn btn-outline" onClick={() => navigate(`/app/patients/${id}/edit`)}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button className="btn btn-primary" style={{ flex: '1 1 100%' }} onClick={() => navigate(`/app/patients/${id}/visits/new`)}>
+            + {visits.length === 0 ? 'Realizar avaliação inicial' : 'Registrar retorno'}
+          </button>
+          <button className="btn btn-outline btn-sm" style={{ flex: 1 }} onClick={() => navigate(`/app/patients/${id}/edit`)}>
             Editar dados
           </button>
-          <button className="btn btn-outline" onClick={() => navigate(`/app/patients/${id}/consent`)}>
+          <button className="btn btn-outline btn-sm" style={{ flex: 1 }} onClick={() => navigate(`/app/patients/${id}/consent`)}>
             Termos LGPD
-          </button>
-          <button className="btn btn-primary" onClick={() => navigate(`/app/patients/${id}/visits/new`)}>
-            + {visits.length === 0 ? 'Realizar avaliação inicial' : 'Registrar retorno'}
           </button>
         </div>
       </div>
@@ -194,20 +194,20 @@ export function PatientRecordPage() {
 
       <div className="tabs">
         <button className={`tab-btn ${tab === 'dados' ? 'active' : ''}`} onClick={() => setTab('dados')}>
-          Dados pessoais
+          Dados
         </button>
         <button className={`tab-btn ${tab === 'evolucao' ? 'active' : ''}`} onClick={() => setTab('evolucao')}>
-          Histórico e evolução
+          Histórico
         </button>
         <button className={`tab-btn ${tab === 'fotos' ? 'active' : ''}`} onClick={() => setTab('fotos')}>
           Fotos ({photos.length})
         </button>
         <button className={`tab-btn ${tab === 'consentimentos' ? 'active' : ''}`} onClick={() => setTab('consentimentos')}>
-          Consentimentos LGPD
+          LGPD
         </button>
         {preAnamnesis && (
           <button className={`tab-btn ${tab === 'pre-anamnese' ? 'active' : ''}`} onClick={() => setTab('pre-anamnese')}>
-            🕓 Pré-anamnese pendente
+            Pré-anamnese
           </button>
         )}
       </div>
