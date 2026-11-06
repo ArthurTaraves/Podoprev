@@ -987,11 +987,13 @@ button {
   }
 
   /* esconde scrollbar dentro da moldura — scroll continua funcional */
-  .mobile-shell *::-webkit-scrollbar {
+  .mobile-shell *::-webkit-scrollbar,
+  .auth-page::-webkit-scrollbar {
     display: none;
   }
 
-  .mobile-shell * {
+  .mobile-shell *,
+  .auth-page {
     scrollbar-width: none;       /* Firefox */
     -ms-overflow-style: none;    /* IE/Edge legado */
   }
