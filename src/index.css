@@ -986,6 +986,16 @@ button {
     -webkit-overflow-scrolling: touch;
   }
 
+  /* esconde scrollbar dentro da moldura — scroll continua funcional */
+  .mobile-shell *::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mobile-shell * {
+    scrollbar-width: none;       /* Firefox */
+    -ms-overflow-style: none;    /* IE/Edge legado */
+  }
+
   /* navbar inferior presa ao rodapé da moldura (#root), não da janela */
   .mobile-tabbar {
     position: absolute;
