@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { getProfessionalValidation, saveProfessionalValidation } from '../../firebase/professionalValidations';
+import { getProfessionalProfile } from '../../firebase/professionalProfiles';
 import { SPECIALTY_OPTIONS } from '../../domain/factories';
 import type { Specialty } from '../../types';
 
@@ -32,17 +33,20 @@ export function ProfessionalValidationPage() {
 
   useEffect(() => {
     if (!user) return;
-    getProfessionalValidation(user.uid).then((existing) => {
+    Promise.all([getProfessionalValidation(user.uid), getProfessionalProfile(user.uid)]).then(([existing, publicProfile]) => {
+      // Campos que também existem no perfil público (aba Agenda) vêm de lá quando
+      // ainda não foram preenchidos aqui — evita digitar duas vezes. As coleções
+      // continuam separadas (uma é pública, a outra interna) e tudo segue editável.
+      setDisplayName(existing?.displayName || publicProfile?.displayName || '');
+      setCity(existing?.city || publicProfile?.city || '');
+      setSpecialties(existing?.specialties.length ? existing.specialties : (publicProfile?.specialties ?? []));
       if (existing) {
         setFullName(existing.fullName);
-        setDisplayName(existing.displayName);
-        setCity(existing.city);
         setState(existing.state);
         setPhone(existing.phone);
         setInstitution(existing.institution);
         setGraduationYear(existing.graduationYear);
         setRegistrationNumber(existing.registrationNumber ?? '');
-        setSpecialties(existing.specialties);
         setCertificateFileName(existing.certificateFileName ?? '');
         setCertificateUrl(existing.certificateUrl ?? '');
       }
