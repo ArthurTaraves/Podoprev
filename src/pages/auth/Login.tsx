@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { isFirebaseConfigured } from '../../firebase/config';
 import { auth } from '../../firebase/config';
@@ -11,12 +11,7 @@ type Profile = 'professional' | 'patient';
 export function LoginPage() {
   const { login, logout, loginDemo, loginDemoPatient } = useAuth();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  // ?perfil=podologo|paciente pré-seleciona o perfil (link direto para a demonstração).
-  const initialProfile = searchParams.get('perfil');
-  const [profile, setProfile] = useState<Profile | null>(
-    initialProfile === 'podologo' ? 'professional' : initialProfile === 'paciente' ? 'patient' : null,
-  );
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -69,12 +64,6 @@ export function LoginPage() {
     }
   }
 
-  function handleDemoLogin() {
-    if (profile === 'patient') loginDemoPatient();
-    else loginDemo();
-    navigate('/');
-  }
-
   return (
     <div className="auth-page">
       <div className="auth-card">
@@ -108,7 +97,9 @@ export function LoginPage() {
           </div>
         </div>
 
-        {!isFirebaseConfigured && !profile && (
+        {/* Únicos atalhos de demonstração da tela (links externos usam ?demo= na raiz).
+            Visíveis com ou sem perfil escolhido — não dependem dele. */}
+        {!isFirebaseConfigured && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
             <button
               type="button"
@@ -131,21 +122,6 @@ export function LoginPage() {
               Entrar como paciente (demonstração)
             </button>
           </div>
-        )}
-
-        {!isFirebaseConfigured && profile && (
-          <>
-            <div className="info-banner">
-              {/* .info-banner é flex: sem este <p> o texto e o <code> virariam colunas separadas. */}
-              <p style={{ margin: 0, lineHeight: 1.5 }}>
-                Firebase ainda não foi configurado neste ambiente (falta <code>.env.local</code>). Use o modo
-                demonstração abaixo para ver a interface com dados de exemplo.
-              </p>
-            </div>
-            <button type="button" className="btn btn-secondary btn-block" style={{ marginBottom: 20 }} onClick={handleDemoLogin}>
-              {profile === 'patient' ? 'Ver como paciente (demonstração)' : 'Entrar em modo demonstração'}
-            </button>
-          </>
         )}
 
         <form onSubmit={handleSubmit}>
