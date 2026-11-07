@@ -12,8 +12,9 @@ import { auth, isFirebaseConfigured } from '../firebase/config';
 import { getProfessional, saveProfessional } from '../firebase/professionals';
 import { getPatientAccount, savePatientAccount } from '../firebase/patientAccounts';
 import { redeemPatientInvite } from '../firebase/patientInvites';
-import { updatePatient } from '../firebase/patients';
+import { createPatient, updatePatient } from '../firebase/patients';
 import { demoPatientAccount, demoProfessional } from '../demo/seed';
+import { demoRegisterPatientWithoutInvite } from '../demo/store';
 import type { PatientAccount, Professional } from '../types';
 
 // Usuários fictícios do modo demonstração — só os campos realmente lidos pelo app
@@ -35,6 +36,14 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>;
   registerProfessional: (name: string, email: string, password: string, registrationNumber?: string) => Promise<void>;
   registerPatient: (name: string, email: string, password: string, inviteCode: string) => Promise<void>;
+  registerPatientWithoutInvite: (
+    name: string,
+    email: string,
+    password: string,
+    cpf: string,
+    birthDate: string,
+    phone: string,
+  ) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshPatientAccount: () => Promise<void>;
@@ -176,6 +185,60 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // Cadastro sem convite: cria prontuário e conta sem profissional (professionalId
+  // vazio). O paciente escolhe o primeiro profissional depois, pela busca.
+  async function registerPatientWithoutInvite(
+    name: string,
+    email: string,
+    password: string,
+    cpf: string,
+    birthDate: string,
+    phone: string,
+  ) {
+    if (!isFirebaseConfigured) {
+      const account = await demoRegisterPatientWithoutInvite(name, email, cpf, birthDate, phone);
+      setUser({ uid: account.uid } as User);
+      setProfessional(null);
+      setPatientAccount(account);
+      setRole('patient');
+      return;
+    }
+    registeringRef.current = true;
+    try {
+      const credential = await createUserWithEmailAndPassword(auth, email, password);
+      try {
+        await updateProfile(credential.user, { displayName: name });
+        const patientId = await createPatient({
+          professionalId: '',
+          fullName: name,
+          birthDate,
+          cpf,
+          phone,
+          email,
+          linkedUserId: credential.user.uid,
+        });
+        const account: PatientAccount = {
+          uid: credential.user.uid,
+          patientId,
+          professionalId: '',
+          name,
+          email,
+          createdAt: Date.now(),
+        };
+        await savePatientAccount(account);
+        setUser(credential.user);
+        setProfessional(null);
+        setPatientAccount(account);
+        setRole('patient');
+      } catch (err) {
+        await credential.user.delete().catch(() => undefined);
+        throw err;
+      }
+    } finally {
+      registeringRef.current = false;
+    }
+  }
+
   async function resetPassword(email: string) {
     await sendPasswordResetEmail(auth, email);
   }
@@ -214,6 +277,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         registerProfessional,
         registerPatient,
+        registerPatientWithoutInvite,
         resetPassword,
         logout,
         refreshPatientAccount,
