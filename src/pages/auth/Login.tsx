@@ -160,31 +160,25 @@ export function LoginPage() {
 
         {profile === 'professional' && (
           <div style={{ marginTop: 16 }}>
-            <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--color-text-secondary)', marginBottom: 8 }}>
+            <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 8 }}>
               Ainda não tem conta?
             </p>
-            <Link to="/register" style={{ textDecoration: 'none' }}>
-              <button type="button" className="btn btn-outline btn-block">
-                Cadastrar como profissional
-              </button>
+            <Link to="/register" className="btn btn-outline btn-block" style={{ textDecoration: 'none' }}>
+              Cadastrar como profissional
             </Link>
           </div>
         )}
 
         {profile === 'patient' && (
           <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--color-text-secondary)', marginBottom: 0 }}>
+            <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 0 }}>
               Ainda não tem conta?
             </p>
-            <Link to="/patient/register?mode=invite" style={{ textDecoration: 'none' }}>
-              <button type="button" className="btn btn-outline btn-block">
-                🎟️ Tenho código de convite
-              </button>
+            <Link to="/patient/register?mode=invite" className="btn btn-outline btn-block" style={{ textDecoration: 'none' }}>
+              Tenho código de convite
             </Link>
-            <Link to="/patient/register?mode=self" style={{ textDecoration: 'none' }}>
-              <button type="button" className="btn btn-outline btn-block">
-                Cadastrar sem convite
-              </button>
+            <Link to="/patient/register?mode=self" className="btn btn-outline btn-block" style={{ textDecoration: 'none' }}>
+              Cadastrar sem convite
             </Link>
           </div>
         )}
