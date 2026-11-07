@@ -12,7 +12,7 @@ import { auth, isFirebaseConfigured } from '../firebase/config';
 import { getProfessional, saveProfessional } from '../firebase/professionals';
 import { getPatientAccount, savePatientAccount } from '../firebase/patientAccounts';
 import { redeemPatientInvite } from '../firebase/patientInvites';
-import { createPatient, updatePatient } from '../firebase/patients';
+import { updatePatient, createPatient } from '../firebase/patients';
 import { demoPatientAccount, demoProfessional } from '../demo/seed';
 import { demoRegisterPatientWithoutInvite } from '../demo/store';
 import type { PatientAccount, Professional } from '../types';
@@ -36,14 +36,7 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>;
   registerProfessional: (name: string, email: string, password: string, registrationNumber?: string) => Promise<void>;
   registerPatient: (name: string, email: string, password: string, inviteCode: string) => Promise<void>;
-  registerPatientWithoutInvite: (
-    name: string,
-    email: string,
-    password: string,
-    cpf: string,
-    birthDate: string,
-    phone: string,
-  ) => Promise<void>;
+  registerPatientWithoutInvite: (name: string, email: string, password: string, cpf: string, birthDate: string, phone: string) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshPatientAccount: () => Promise<void>;
@@ -185,16 +178,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // Cadastro sem convite: cria prontuário e conta sem profissional (professionalId
-  // vazio). O paciente escolhe o primeiro profissional depois, pela busca.
-  async function registerPatientWithoutInvite(
-    name: string,
-    email: string,
-    password: string,
-    cpf: string,
-    birthDate: string,
-    phone: string,
-  ) {
+  async function registerPatientWithoutInvite(name: string, email: string, password: string, cpf: string, birthDate: string, phone: string) {
     if (!isFirebaseConfigured) {
       const account = await demoRegisterPatientWithoutInvite(name, email, cpf, birthDate, phone);
       setUser({ uid: account.uid } as User);

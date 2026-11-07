@@ -116,12 +116,10 @@ service cloud.firestore {
       // (ver comentário na função acima) — nunca ganha escrita.
       allow read: if isOwner(resource.data.professionalId) || isLinkedPatient(patientId) || wasEverLinkedProfessional(patientId);
       allow create: if isOwner(request.resource.data.professionalId)
-        // Cadastro sem convite: o próprio paciente cria seu prontuário ainda sem
-        // profissional (professionalId vazio), vinculado ao próprio uid. O primeiro
-        // vínculo depois usa o ramo de update "troca de profissional" abaixo.
+        // Cadastro sem convite: paciente cria o próprio prontuário sem profissional vinculado.
         || (isSignedIn()
             && request.resource.data.professionalId == ''
-            && request.resource.data.linkedUserId == request.auth.uid);
+            && request.resource.data.get('linkedUserId', null) == request.auth.uid);
       allow update: if (isOwner(resource.data.professionalId) && isOwner(request.resource.data.professionalId))
         // Vínculo de conta: o próprio paciente grava seu uid uma única vez.
         // .get(field, default) porque linkedUserId não existe no documento até este

@@ -130,7 +130,10 @@ export function LoginPage() {
             Não tem conta? <Link to="/register">Cadastre-se como profissional</Link>
           </p>
           <p style={{ marginTop: 6 }}>
-            Paciente sem conta? <Link to="/patient/register">Entre com o código de convite do seu podólogo</Link>
+            Paciente sem conta?{' '}
+            <Link to="/patient/register?mode=invite">Tenho código de convite</Link>
+            {' · '}
+            <Link to="/patient/register?mode=self">Cadastrar sem convite</Link>
           </p>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { getPatientInvite } from '../../firebase/patientInvites';
 import { formatCpf, isValidCpf } from '../../lib/cpf';
@@ -19,7 +19,17 @@ const linkButtonStyle = {
 export function PatientRegisterPage() {
   const { registerPatient, registerPatientWithoutInvite } = useAuth();
   const navigate = useNavigate();
-  const [mode, setMode] = useState<'choose' | 'invite' | 'self'>('choose');
+  const [searchParams] = useSearchParams();
+
+  // Lê ?mode= da URL para abrir direto no modo certo (via links da tela de login)
+  const initialMode: 'choose' | 'invite' | 'self' = (() => {
+    const m = searchParams.get('mode');
+    if (m === 'invite') return 'invite';
+    if (m === 'self') return 'self';
+    return 'choose';
+  })();
+
+  const [mode, setMode] = useState<'choose' | 'invite' | 'self'>(initialMode);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

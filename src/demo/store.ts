@@ -167,8 +167,6 @@ export async function demoGetPatientAccount(uid: string): Promise<PatientAccount
   return patientAccounts.get(uid) ?? null;
 }
 
-// Cadastro sem convite: prontuário e conta nascem sem profissional (professionalId
-// vazio) — o primeiro vínculo acontece depois, pela busca de profissionais.
 export async function demoRegisterPatientWithoutInvite(
   name: string,
   email: string,
@@ -176,8 +174,9 @@ export async function demoRegisterPatientWithoutInvite(
   birthDate: string,
   phone: string,
 ): Promise<PatientAccount> {
-  const uid = `demo-patient-${uuid()}`;
+  const uid = uuid();
   const patientId = uuid();
+  const now = Date.now();
   patients.push({
     id: patientId,
     professionalId: '',
@@ -188,10 +187,10 @@ export async function demoRegisterPatientWithoutInvite(
     email,
     isActive: true,
     linkedUserId: uid,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
+    createdAt: now,
+    updatedAt: now,
   });
-  const account: PatientAccount = { uid, patientId, professionalId: '', name, email, createdAt: Date.now() };
+  const account: PatientAccount = { uid, patientId, professionalId: '', name, email, createdAt: now };
   patientAccounts.set(uid, account);
   return account;
 }
