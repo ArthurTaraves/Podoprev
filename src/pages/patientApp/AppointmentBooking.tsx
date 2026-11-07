@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { getAvailability } from '../../firebase/availability';
 import { cancelAppointment, confirmAppointment, listOccupiedSlots, reserveSlot } from '../../firebase/appointments';
@@ -32,7 +33,7 @@ export function AppointmentBooking({ onClose, onBooked }: Props) {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!patientAccount) return;
+    if (!patientAccount || !patientAccount.professionalId) return;
     getAvailability(patientAccount.professionalId).then((a) => {
       setAvailability(a);
       setLoading(false);
@@ -113,6 +114,21 @@ export function AppointmentBooking({ onClose, onBooked }: Props) {
       setBusy(false);
       onClose();
     }
+  }
+
+  if (!patientAccount?.professionalId) {
+    return (
+      <div style={{ padding: 16 }}>
+        <div className="card" style={{ textAlign: 'center', padding: 24 }}>
+          <p style={{ fontSize: 32, marginBottom: 8 }}>📅</p>
+          <strong>Nenhum podólogo vinculado</strong>
+          <p style={{ fontSize: 13, marginTop: 8 }}>Busque um profissional na aba Buscar para habilitar o agendamento.</p>
+          <Link to="/patient/search" className="btn btn-primary btn-block" style={{ marginTop: 16 }}>
+            Buscar profissional
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   if (loading) return <p>Carregando…</p>;

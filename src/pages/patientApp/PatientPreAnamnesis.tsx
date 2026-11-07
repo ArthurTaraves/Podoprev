@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { createPreAnamnesis, getPreAnamnesisForPatient, updatePreAnamnesisAnswers } from '../../firebase/preAnamnesis';
 import { emptyAnamnesis } from '../../domain/factories';
@@ -16,7 +17,7 @@ export function PatientPreAnamnesisPage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (!patientAccount) return;
+    if (!patientAccount || !patientAccount.professionalId) return;
     getPreAnamnesisForPatient(patientAccount.patientId, patientAccount.professionalId).then((existing) => {
       setPre(existing);
       setLoading(false);
@@ -75,6 +76,21 @@ export function PatientPreAnamnesisPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  if (patientAccount && !patientAccount.professionalId) {
+    return (
+      <div style={{ padding: 16 }}>
+        <div className="card" style={{ textAlign: 'center', padding: 24 }}>
+          <p style={{ fontSize: 32, marginBottom: 8 }}>📋</p>
+          <strong>Nenhum podólogo vinculado</strong>
+          <p style={{ fontSize: 13, marginTop: 8 }}>Busque um profissional na aba Buscar para habilitar a pré-anamnese.</p>
+          <Link to="/patient/search" className="btn btn-primary btn-block" style={{ marginTop: 16 }}>
+            Buscar profissional
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   if (loading) return <p>Carregando…</p>;

@@ -33,7 +33,8 @@ export function PatientProfilePage() {
       ]);
       const [consentLists, profileEntries] = await Promise.all([
         Promise.all(professionalIds.map((profId) => listConsentsByPatient(patientAccount.patientId, profId))),
-        Promise.all(professionalIds.map(async (profId) => [profId, (await getProfessionalProfile(profId))?.displayName ?? null] as const)),
+        // profId vazio = paciente cadastrado sem convite, ainda sem profissional (não há perfil a ler).
+        Promise.all(professionalIds.map(async (profId) => [profId, profId ? (await getProfessionalProfile(profId))?.displayName ?? null : null] as const)),
       ]);
       setPatient(p);
       setConsents(mergeById(consentLists.flat()).sort((a, b) => b.agreedAt - a.agreedAt));

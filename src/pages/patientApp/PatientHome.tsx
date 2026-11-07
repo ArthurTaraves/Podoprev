@@ -60,7 +60,9 @@ export function PatientHomePage() {
   const [notificationStatus, setNotificationStatus] = useState<'idle' | 'requesting' | 'on' | 'unavailable'>('idle');
 
   useEffect(() => {
-    if (!patientAccount) return;
+    // Sem profissional vinculado (cadastro sem convite) não há o que carregar —
+    // o perfil do profissional nem pode ser lido com id vazio.
+    if (!patientAccount || !patientAccount.professionalId) return;
     Promise.all([
       getPatient(patientAccount.patientId),
       listVisitsByPatient(patientAccount.patientId, patientAccount.professionalId),
@@ -88,6 +90,23 @@ export function PatientHomePage() {
     } else {
       setNotificationStatus('unavailable');
     }
+  }
+
+  if (patientAccount && !patientAccount.professionalId) {
+    return (
+      <div style={{ padding: 16 }}>
+        <div className="card" style={{ textAlign: 'center', padding: 24 }}>
+          <p style={{ fontSize: 32, marginBottom: 8 }}>🩺</p>
+          <strong>Escolha seu podólogo para começar</strong>
+          <p style={{ fontSize: 13, marginTop: 8 }}>
+            Busque um profissional na aba Buscar para habilitar consultas, pré-anamnese e agendamento.
+          </p>
+          <Link to="/patient/search" className="btn btn-primary btn-block" style={{ marginTop: 16 }}>
+            Buscar profissional
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   if (loading) return <p>Carregando…</p>;
