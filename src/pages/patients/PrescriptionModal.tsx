@@ -111,10 +111,12 @@ export function PrescriptionModal({ patientId, patientName, onClose }: Props) {
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(15, 23, 42, 0.55)',
+        background: 'rgba(0, 0, 0, 0.5)',
         display: 'flex',
-        alignItems: 'flex-end',
+        alignItems: 'center',
         justifyContent: 'center',
+        padding: 16,
+        boxSizing: 'border-box',
         zIndex: 1000,
       }}
     >
@@ -123,11 +125,12 @@ export function PrescriptionModal({ patientId, patientName, onClose }: Props) {
         onClick={(e) => e.stopPropagation()}
         style={{
           width: '100%',
-          maxWidth: 420,
+          maxWidth: 380, // cabe dentro da moldura de celular do desktop (index.css, ≥600px)
           maxHeight: '90vh',
           overflowY: 'auto',
-          borderRadius: '16px 16px 0 0',
-          marginBottom: 0,
+          boxSizing: 'border-box',
+          borderRadius: 16,
+          margin: 0,
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
