@@ -7,14 +7,15 @@ import { listPrescriptionsByPatient } from '../../firebase/prescriptions';
 import { daysRemaining, isPrescriptionActive } from '../../domain/prescriptions';
 import { formatDateBR, todayIso as getTodayIso } from '../../lib/dates';
 import {
-  notificationPermission,
+  getReminderPermission,
+  hasRemindersForThisDevice,
+  isNativeApp,
   requestReminderPermission,
-  schedulePrescriptionReminders,
+  scheduleReminders,
   shouldAskPermissionAutomatically,
-} from '../../mobile/prescriptionReminders';
+  type ReminderPermission,
+} from '../../lib/reminders';
 import type { CareInstruction, Prescription } from '../../types';
-
-type ReminderStatus = 'granted' | 'denied' | 'default' | 'unsupported';
 
 function remainingLabel(days: number | null): string | null {
   if (days === null) return null;
@@ -23,13 +24,48 @@ function remainingLabel(days: number | null): string | null {
   return `Faltam ${days} dias`;
 }
 
+// Único ponto de ativação de lembretes do app (ver src/lib/reminders.ts).
+function ReminderCard({ status, native, onEnable }: { status: ReminderPermission; native: boolean; onEnable: () => void }) {
+  return (
+    <div className="card" style={{ marginBottom: 20 }}>
+      <strong>🔔 Lembretes</strong>
+      {status === 'granted' ? (
+        <p style={{ marginTop: 6, marginBottom: 0, fontSize: 13 }}>
+          ✓ Lembretes ativados neste dispositivo.{' '}
+          {native
+            ? 'Você recebe os lembretes dos cuidados prescritos e das orientações do atendimento, mesmo com o app fechado.'
+            : 'Os lembretes dos cuidados prescritos chegam enquanto o PodoPrev estiver aberto no navegador. Para receber também os das orientações do atendimento — mesmo com o app fechado — use o app Android.'}
+        </p>
+      ) : status === 'denied' ? (
+        <p style={{ marginTop: 6, marginBottom: 0, fontSize: 13 }}>
+          As notificações estão bloqueadas. Para receber lembretes, libere as notificações do PodoPrev nas configurações do{' '}
+          {native ? 'celular' : 'navegador'}.
+        </p>
+      ) : status === 'unsupported' ? (
+        <p style={{ marginTop: 6, marginBottom: 0, fontSize: 13 }}>Este navegador não permite notificações.</p>
+      ) : (
+        <>
+          <p style={{ marginTop: 6, marginBottom: 6, fontSize: 13 }}>Um só botão ativa todos os seus lembretes neste dispositivo:</p>
+          <ul style={{ margin: '0 0 12px', paddingLeft: 18, fontSize: 13 }}>
+            <li>Cuidados prescritos: no navegador (com o site aberto) e no app Android.</li>
+            <li>Orientações do atendimento: só no app Android.</li>
+          </ul>
+          <button type="button" className="btn btn-primary btn-block" onClick={onEnable}>
+            Ativar lembretes
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
 export function PatientCarePage() {
   const { patientAccount } = useAuth();
   const [instructions, setInstructions] = useState<CareInstruction[]>([]);
   const [visitDate, setVisitDate] = useState<number | null>(null);
   const [recentlySwitched, setRecentlySwitched] = useState(false);
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
-  const [reminderStatus, setReminderStatus] = useState<ReminderStatus>(notificationPermission());
+  const [reminderStatus, setReminderStatus] = useState<ReminderPermission>('default');
   const [done, setDone] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
 
@@ -45,26 +81,29 @@ export function PatientCarePage() {
       const latest = visits[0];
       const todayIso = getTodayIso();
       const active = allPrescriptions.filter((p) => isPrescriptionActive(p, todayIso));
-      setInstructions(latest?.careInstructions ?? []);
+      const careInstructions = latest?.careInstructions ?? [];
+      setInstructions(careInstructions);
       setVisitDate(latest?.date ?? null);
       setRecentlySwitched(switches.length > 0);
       setPrescriptions(active);
       setLoading(false);
 
-      // Primeira vez com prescrição ativa: pede permissão de notificação. Depois
+      // Primeira vez com algo a lembrar neste dispositivo: pede permissão. Depois
       // disso, só pelo botão "Ativar lembretes" (não insiste a cada visita à aba).
-      if (active.length > 0 && shouldAskPermissionAutomatically()) {
-        setReminderStatus((await requestReminderPermission()) ? 'granted' : notificationPermission());
+      let permission = await getReminderPermission();
+      if (hasRemindersForThisDevice(active, careInstructions) && shouldAskPermissionAutomatically(permission)) {
+        permission = await requestReminderPermission();
       }
-      // Agenda (ou limpa, se não houver mais nenhuma ativa) os lembretes deste dispositivo.
-      await schedulePrescriptionReminders(active);
+      setReminderStatus(permission);
+      // Agenda (ou limpa, se não houver mais nada) os lembretes deste dispositivo.
+      await scheduleReminders(active, careInstructions);
     });
   }, [patientAccount]);
 
   async function handleEnableReminders() {
-    const granted = await requestReminderPermission();
-    setReminderStatus(granted ? 'granted' : notificationPermission());
-    if (granted) await schedulePrescriptionReminders(prescriptions);
+    const permission = await requestReminderPermission();
+    setReminderStatus(permission);
+    if (permission === 'granted') await scheduleReminders(prescriptions, instructions);
   }
 
   function toggle(id: string) {
@@ -105,21 +144,11 @@ export function PatientCarePage() {
               </div>
             );
           })}
-
-          {reminderStatus === 'granted' && (
-            <p className="hint" style={{ marginTop: 4 }}>🔔 Lembretes ativados neste dispositivo.</p>
-          )}
-          {reminderStatus === 'default' && (
-            <button type="button" className="btn btn-outline btn-sm" style={{ marginTop: 4 }} onClick={handleEnableReminders}>
-              Ativar lembretes
-            </button>
-          )}
-          {reminderStatus === 'denied' && (
-            <p className="hint" style={{ marginTop: 4 }}>
-              As notificações estão bloqueadas. Para receber lembretes, libere as notificações do PodoPrev nas configurações do navegador.
-            </p>
-          )}
         </section>
+      )}
+
+      {(prescriptions.length > 0 || instructions.length > 0) && (
+        <ReminderCard status={reminderStatus} native={isNativeApp()} onEnable={handleEnableReminders} />
       )}
 
       {visitDate && (

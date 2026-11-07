@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Capacitor } from '@capacitor/core';
 import { useAuth } from '../../context/AuthContext';
 import { getPatient } from '../../firebase/patients';
 import { listVisitsByPatient } from '../../firebase/visits';
@@ -8,7 +7,6 @@ import { getProfessionalProfile } from '../../firebase/professionalProfiles';
 import { listSwitchHistoryByPatient } from '../../firebase/switchHistory';
 import type { Patient, ProfessionalProfile, Visit } from '../../types';
 import { RiskBadge } from '../../components/ui/RiskBadge';
-import { requestNotificationPermission, scheduleCareReminders } from '../../mobile/notifications';
 import { daysBetween, formatDateBR, todayIso } from '../../lib/dates';
 
 const FRIENDLY_MESSAGE: Record<Visit['risk']['level'], string> = {
@@ -50,7 +48,6 @@ export function PatientHomePage() {
   const [professionalProfile, setProfessionalProfile] = useState<ProfessionalProfile | null>(null);
   const [recentlySwitched, setRecentlySwitched] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [notificationStatus, setNotificationStatus] = useState<'idle' | 'requesting' | 'on' | 'unavailable'>('idle');
 
   useEffect(() => {
     // Sem profissional vinculado (cadastro sem convite) não há o que carregar —
@@ -69,21 +66,6 @@ export function PatientHomePage() {
       setLoading(false);
     });
   }, [patientAccount]);
-
-  async function handleEnableReminders() {
-    if (!Capacitor.isNativePlatform()) {
-      setNotificationStatus('unavailable');
-      return;
-    }
-    setNotificationStatus('requesting');
-    const granted = await requestNotificationPermission();
-    if (granted && latestVisit) {
-      await scheduleCareReminders(latestVisit.careInstructions);
-      setNotificationStatus('on');
-    } else {
-      setNotificationStatus('unavailable');
-    }
-  }
 
   if (patientAccount && !patientAccount.professionalId) {
     return (
@@ -217,23 +199,18 @@ export function PatientHomePage() {
             </Link>
           </div>
 
-          <div className="card" style={{ marginBottom: 16 }}>
-            <strong>Lembretes</strong>
-            <p style={{ marginTop: 4, fontSize: 13 }}>
-              Lembretes de cuidados prescritos pelo seu podólogo chegam pelo navegador (com o site aberto) ou pelo app
-              Android instalado — ative na aba Cuidados. O botão abaixo ativa, no app Android, lembretes das
-              orientações do seu último atendimento (ex.: hidratar os pés).
-            </p>
-            <button className="btn btn-primary btn-block" onClick={handleEnableReminders} disabled={notificationStatus === 'requesting'}>
-              {notificationStatus === 'on' ? 'Lembretes ativados ✓' : notificationStatus === 'requesting' ? 'Ativando…' : 'Ativar lembretes'}
-            </button>
-            {notificationStatus === 'unavailable' && (
-              <p className="hint" style={{ marginTop: 8, fontSize: 13 }}>
-                Este botão funciona só no app Android instalado. No navegador, ative os lembretes na aba{' '}
-                <Link to="/patient/care">Cuidados</Link>.
-              </p>
-            )}
-          </div>
+          {/* Atalho — a ativação de lembretes fica só na aba Cuidados (src/lib/reminders.ts). */}
+          <Link
+            to="/patient/care"
+            className="card"
+            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 16, textDecoration: 'none', color: 'inherit' }}
+          >
+            <span style={{ fontSize: 14 }}>
+              🔔 <strong>Lembretes</strong>
+              <span className="hint" style={{ display: 'block', marginTop: 2 }}>Gerencie seus lembretes em Cuidados</span>
+            </span>
+            <span aria-hidden="true" style={{ fontSize: 18 }}>→</span>
+          </Link>
         </>
       ) : (
         <div className="card empty-state" style={{ marginBottom: 16 }}>
