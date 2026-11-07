@@ -11,12 +11,17 @@ import { getPatientProfessionalLink } from '../../firebase/patientProfessionalLi
 import type { Anamnesis, Consent, Patient, PatientPhoto, PreAnamnesis, Visit } from '../../types';
 import { calculateAge } from '../../domain/riskScore';
 import { RiskBadge } from '../../components/ui/RiskBadge';
-import { generateVisitReportPdf } from '../../lib/pdf';
+import { generatePatientReportPdf, generateVisitReportPdf } from '../../lib/pdf';
+import { listPrescriptionsByPatient } from '../../firebase/prescriptions';
+import { isPrescriptionActive } from '../../domain/prescriptions';
 import { formatPhone } from '../../lib/phone';
 import { describeAttentionEvolution, describeScoreDiff } from '../../domain/evolution';
 import { StepAnamnesis } from '../visits/steps/StepAnamnesis';
 import { PrescriptionModal } from './PrescriptionModal';
-import { formatDateBR } from '../../lib/dates';
+import { formatDateBR, todayIso } from '../../lib/dates';
+
+// Botões secundários do cabeçalho em grade 2×2 (metade da linha menos metade do gap de 8px).
+const HALF_ROW: React.CSSProperties = { flex: '1 1 calc(50% - 4px)' };
 
 type Tab = 'dados' | 'evolucao' | 'fotos' | 'consentimentos' | 'pre-anamnese';
 
@@ -45,6 +50,7 @@ export function PatientRecordPage() {
   const [previousProfessionalName, setPreviousProfessionalName] = useState<string | null>(null);
   const [historyShared, setHistoryShared] = useState(false);
   const [prescribing, setPrescribing] = useState(false);
+  const [generatingReport, setGeneratingReport] = useState(false);
 
   useEffect(() => {
     if (!id || !user) return;
@@ -106,6 +112,21 @@ export function PatientRecordPage() {
     }
   }
 
+  // Relatório geral do paciente. Prescrições são lidas na hora (o modal pode ter
+  // acabado de criar/remover alguma); atendimentos são os já carregados na tela,
+  // incluindo os compartilhados por um profissional anterior, quando autorizados.
+  async function handleGeneratePatientReport() {
+    if (!patient || !user) return;
+    setGeneratingReport(true);
+    try {
+      const today = todayIso();
+      const prescriptions = await listPrescriptionsByPatient(patient.id, user.uid);
+      generatePatientReportPdf(patient, visits, prescriptions.filter((p) => isPrescriptionActive(p, today)));
+    } finally {
+      setGeneratingReport(false);
+    }
+  }
+
   function toggleComparePhoto(photoId: string) {
     setComparePhotoIds((prev) => {
       if (prev.includes(photoId)) return prev.filter((id) => id !== photoId);
@@ -164,14 +185,17 @@ export function PatientRecordPage() {
           <button className="btn btn-primary" style={{ flex: '1 1 100%' }} onClick={() => navigate(`/app/patients/${id}/visits/new`)}>
             + {visits.length === 0 ? 'Realizar avaliação inicial' : 'Nova consulta'}
           </button>
-          <button className="btn btn-outline btn-sm" style={{ flex: 1 }} onClick={() => navigate(`/app/patients/${id}/edit`)}>
+          <button className="btn btn-outline btn-sm" style={HALF_ROW} onClick={() => navigate(`/app/patients/${id}/edit`)}>
             Editar dados
           </button>
-          <button className="btn btn-outline btn-sm" style={{ flex: 1 }} onClick={() => navigate(`/app/patients/${id}/consent`)}>
+          <button className="btn btn-outline btn-sm" style={HALF_ROW} onClick={() => navigate(`/app/patients/${id}/consent`)}>
             Termos LGPD
           </button>
-          <button className="btn btn-outline btn-sm" style={{ flex: '1 1 100%' }} onClick={() => setPrescribing(true)}>
+          <button className="btn btn-outline btn-sm" style={HALF_ROW} onClick={() => setPrescribing(true)}>
             🔔 Prescrever cuidado
+          </button>
+          <button className="btn btn-outline btn-sm" style={HALF_ROW} disabled={generatingReport} onClick={handleGeneratePatientReport}>
+            {generatingReport ? 'Gerando…' : '📄 Gerar relatório'}
           </button>
         </div>
       </div>
