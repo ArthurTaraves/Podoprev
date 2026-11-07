@@ -5,6 +5,7 @@ import { getAvailability } from '../../firebase/availability';
 import { cancelAppointment, confirmAppointment, listOccupiedSlots, reserveSlot } from '../../firebase/appointments';
 import { buildCalendarDays, generateDaySlots, removeBlockedSlots, weekdayFromDate } from '../../domain/availability';
 import type { Appointment, Availability } from '../../types';
+import { formatDateBR } from '../../lib/dates';
 
 interface Props {
   onClose: () => void;
@@ -166,7 +167,7 @@ export function AppointmentBooking({ onClose, onBooked }: Props) {
                 style={!d.available ? { color: 'var(--color-text-muted)', background: 'var(--color-bg)', cursor: 'not-allowed' } : undefined}
                 onClick={() => d.available && selectDate(d.date)}
               >
-                {new Date(d.date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                {formatDateBR(d.date, { day: '2-digit', month: '2-digit' })}
               </button>
             ))}
           </div>
@@ -180,7 +181,7 @@ export function AppointmentBooking({ onClose, onBooked }: Props) {
         <div>
           <h4>Escolha o horário</h4>
           <p className="hint" style={{ marginBottom: 12 }}>
-            {new Date(selectedDate + 'T00:00:00').toLocaleDateString('pt-BR')}
+            {formatDateBR(selectedDate)}
           </p>
           {loadingSlots ? (
             <p>Carregando horários…</p>
@@ -209,7 +210,7 @@ export function AppointmentBooking({ onClose, onBooked }: Props) {
               <strong>Profissional:</strong> {professional?.name ?? 'Podólogo(a)'}
             </p>
             <p style={{ margin: '6px 0' }}>
-              <strong>Data:</strong> {new Date(reservation.date + 'T00:00:00').toLocaleDateString('pt-BR')}
+              <strong>Data:</strong> {formatDateBR(reservation.date)}
             </p>
             <p style={{ margin: 0 }}>
               <strong>Horário:</strong> {reservation.startTime} às {reservation.endTime}

@@ -8,6 +8,7 @@ import { getProfessionalProfile } from '../../firebase/professionalProfiles';
 import type { Consent, Patient } from '../../types';
 import { calculateAge } from '../../domain/riskScore';
 import { formatPhone } from '../../lib/phone';
+import { formatDateBR } from '../../lib/dates';
 
 // Mesmo mecanismo de mesclagem por id usado em PatientHistory.tsx.
 function mergeById<T extends { id: string }>(items: T[]): T[] {
@@ -61,12 +62,12 @@ export function PatientProfilePage() {
   function consentLabel(label: string, list: Consent[]) {
     if (list.length === 0) return `${label}: Pendente`;
     if (list.length === 1 && !hasMultipleProfessionals) {
-      return `${label}: Assinado em ${new Date(list[0].agreedAt).toLocaleDateString('pt-BR')}`;
+      return `${label}: Assinado em ${formatDateBR(list[0].agreedAt)}`;
     }
     return list
       .map((c) => {
         const name = professionalNames[c.professionalId];
-        return `${new Date(c.agreedAt).toLocaleDateString('pt-BR')}${name ? ` (com ${name})` : ''}`;
+        return `${formatDateBR(c.agreedAt)}${name ? ` (com ${name})` : ''}`;
       })
       .join(' · ');
   }

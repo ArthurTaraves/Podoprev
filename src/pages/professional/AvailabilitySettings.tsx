@@ -10,6 +10,7 @@ import { getProfessionalValidation } from '../../firebase/professionalValidation
 import { emptyAvailability, emptyProfessionalProfile, SPECIALTY_OPTIONS, WEEKDAY_LABELS, WEEKDAYS } from '../../domain/factories';
 import { generateDaySlots, validateAvailability, validateScheduleBlock } from '../../domain/availability';
 import type { Appointment, Availability, AvailabilityBlock, ProfessionalProfile, ProfessionalValidation, ScheduleBlock, Specialty, Weekday } from '../../types';
+import { formatDateBR } from '../../lib/dates';
 
 const DURATION_OPTIONS = [30, 45, 60, 90];
 
@@ -210,7 +211,7 @@ export function AvailabilitySettingsPage() {
             {appointments.map((appt) => (
               <div key={appt.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
                 <div>
-                  <strong>{patientNames[appt.patientId] ?? 'Paciente'}</strong> — {new Date(appt.date + 'T00:00:00').toLocaleDateString('pt-BR')}, {appt.startTime} às {appt.endTime}
+                  <strong>{patientNames[appt.patientId] ?? 'Paciente'}</strong> — {formatDateBR(appt.date)}, {appt.startTime} às {appt.endTime}
                 </div>
                 <span className="badge badge-low">Agendado pelo paciente</span>
               </div>
@@ -295,7 +296,7 @@ export function AvailabilitySettingsPage() {
             {availability.blocks.map((block) => (
               <div key={block.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
                 <div>
-                  <strong>{new Date(block.date + 'T00:00:00').toLocaleDateString('pt-BR')}</strong>
+                  <strong>{formatDateBR(block.date)}</strong>
                   {' — '}
                   {block.startTime === '00:00' && block.endTime === '23:59' ? 'Dia inteiro' : `${block.startTime} às ${block.endTime}`}
                   {block.reason && <span className="hint"> · {block.reason}</span>}

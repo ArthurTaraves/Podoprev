@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { createPrescription, deletePrescription, listPrescriptionsByPatient } from '../../firebase/prescriptions';
-import { defaultPrescriptionTimes, isPrescriptionActive, sortTimes, toLocalIsoDate } from '../../domain/prescriptions';
+import { defaultPrescriptionTimes, isPrescriptionActive, sortTimes } from '../../domain/prescriptions';
+import { formatDateBR, todayIso as getTodayIso } from '../../lib/dates';
 import type { Prescription } from '../../types';
 
 interface Props {
@@ -20,10 +21,6 @@ const timeInputStyle: React.CSSProperties = {
   fontFamily: 'inherit',
   background: 'white',
 };
-
-function formatDate(iso: string): string {
-  return new Date(iso + 'T00:00:00').toLocaleDateString('pt-BR');
-}
 
 export function PrescriptionModal({ patientId, patientName, onClose }: Props) {
   const { user, professional } = useAuth();
@@ -108,7 +105,7 @@ export function PrescriptionModal({ patientId, patientName, onClose }: Props) {
     setPrescriptions(await listPrescriptionsByPatient(patientId, user.uid));
   }
 
-  const todayIso = toLocalIsoDate(new Date());
+  const todayIso = getTodayIso();
 
   return (
     <div
@@ -247,7 +244,7 @@ export function PrescriptionModal({ patientId, patientName, onClose }: Props) {
                     <div className="hint" style={{ marginTop: 4 }}>
                       {p.times.join(' · ')}
                       {(p.startDate || p.endDate) &&
-                        ` — ${p.startDate ? formatDate(p.startDate) : 'desde já'} até ${p.endDate ? formatDate(p.endDate) : 'sem data de fim'}`}
+                        ` — ${p.startDate ? formatDateBR(p.startDate) : 'desde já'} até ${p.endDate ? formatDateBR(p.endDate) : 'sem data de fim'}`}
                     </div>
                     <button
                       type="button"

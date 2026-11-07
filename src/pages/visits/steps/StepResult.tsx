@@ -3,6 +3,7 @@ import { RETURN_DESCRIPTION } from '../../../domain/returnSuggestion';
 import { ATTENTION_DISCLAIMER } from '../../../domain/riskScore';
 import { describeAttentionEvolution, describeScoreDiff, describeSignalListChange } from '../../../domain/evolution';
 import type { ExamSigns, RiskResult, Visit } from '../../../types';
+import { formatDateBR } from '../../../lib/dates';
 
 interface Props {
   risk: RiskResult;
@@ -42,7 +43,7 @@ function recommendedAction(risk: RiskResult, hasPriorVisits: boolean, hasCritica
   if (!hasPriorVisits) {
     return 'Agendar próxima consulta preventiva em 60 a 90 dias.';
   }
-  return `Manter acompanhamento. Próximo retorno sugerido: ${new Date(returnDate + 'T00:00:00').toLocaleDateString('pt-BR')}.`;
+  return `Manter acompanhamento. Próximo retorno sugerido: ${formatDateBR(returnDate)}.`;
 }
 
 export function StepResult({
@@ -156,7 +157,7 @@ export function StepResult({
           <label>Data de retorno sugerida (editável)</label>
           <input type="date" value={returnDate} onChange={(e) => onReturnDateChange(e.target.value)} />
           <span className="hint">
-            Sugestão automática: {new Date(suggestedReturnDate).toLocaleDateString('pt-BR')} — {RETURN_DESCRIPTION[risk.level]}
+            Sugestão automática: {formatDateBR(suggestedReturnDate)} — {RETURN_DESCRIPTION[risk.level]}
           </span>
         </div>
       </div>

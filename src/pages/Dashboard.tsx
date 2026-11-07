@@ -12,6 +12,7 @@ import {
   type PatientActionStatus,
 } from '../domain/actionQueue';
 import { describePanelEvolution } from '../domain/evolution';
+import { formatDateBR } from '../lib/dates';
 
 // Duas maiores pontuações do atendimento, como frase simples — a "explicação"
 // de por que o paciente está em destaque no grupo 1.
@@ -19,10 +20,6 @@ function topFactorsSummary(visit: Visit): string {
   const top = [...visit.risk.breakdown].sort((a, b) => b.points - a.points).slice(0, 2);
   if (top.length === 0) return 'Múltiplos fatores de risco';
   return top.map((f) => f.label).join(' + ');
-}
-
-function formatDate(ts: number): string {
-  return new Date(ts).toLocaleDateString('pt-BR');
 }
 
 function Grupo1Card({
@@ -84,7 +81,7 @@ function Grupo2Card({
       <div className="action-row-main">
         <div className="action-row-name">{patient.fullName}</div>
         <div className="action-row-meta">{days === 0 ? 'Retorno é hoje' : `Retorno atrasado há ${Math.abs(days)} dia${Math.abs(days) === 1 ? '' : 's'}`}</div>
-        <div className="hint">Último atendimento em {formatDate(latestVisit.date)}</div>
+        <div className="hint">Último atendimento em {formatDateBR(latestVisit.date)}</div>
         {evolutionText && <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{evolutionText}</div>}
       </div>
       <div className="action-row-side">
@@ -109,7 +106,7 @@ function Grupo3Card({ status, onRegister }: { status: PatientActionStatus; onReg
       <div className="action-row-main">
         <div className="action-row-name">{patient.fullName}</div>
         <div className="action-row-meta">Ainda sem avaliação registrada</div>
-        <div className="hint">Cadastrado em {formatDate(patient.createdAt)}</div>
+        <div className="hint">Cadastrado em {formatDateBR(patient.createdAt)}</div>
       </div>
       <div className="action-row-side">
         <div className="action-row-buttons">
@@ -311,7 +308,7 @@ export function DashboardPage() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
                       <strong>{v.patientName}</strong>
                       <span style={{ fontSize: 13, color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
-                        {new Date(v.date).toLocaleDateString('pt-BR')}
+                        {formatDateBR(v.date)}
                       </span>
                     </div>
                     <div style={{ fontSize: 13, color: 'var(--color-text-muted)', marginTop: 2 }}>

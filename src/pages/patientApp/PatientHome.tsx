@@ -9,6 +9,7 @@ import { listSwitchHistoryByPatient } from '../../firebase/switchHistory';
 import type { Patient, ProfessionalProfile, Visit } from '../../types';
 import { RiskBadge } from '../../components/ui/RiskBadge';
 import { requestNotificationPermission, scheduleCareReminders } from '../../mobile/notifications';
+import { daysBetween, formatDateBR, todayIso } from '../../lib/dates';
 
 const FRIENDLY_MESSAGE: Record<Visit['risk']['level'], string> = {
   baixo: 'Seus pés estão bem! Continue com os cuidados de rotina.',
@@ -33,14 +34,6 @@ const EDUCATIONAL_CARDS = [
     icon: '🧦',
   },
 ];
-
-function daysUntil(dateIso: string): number {
-  const [y, m, d] = dateIso.split('-').map(Number);
-  const target = new Date(y, (m ?? 1) - 1, d ?? 1);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return Math.round((target.getTime() - today.getTime()) / 86_400_000);
-}
 
 function returnUrgency(days: number): { urgencyClass: string; badgeClass: string; text: string } {
   if (days < 0) return { urgencyClass: 'urgency-overdue', badgeClass: 'badge-overdue', text: 'Retorno em atraso' };
@@ -112,7 +105,7 @@ export function PatientHomePage() {
   if (loading) return <p>Carregando…</p>;
   if (!patient) return <p>Não encontramos seus dados. Fale com seu podólogo.</p>;
 
-  const days = latestVisit ? daysUntil(latestVisit.returnDate) : null;
+  const days = latestVisit ? daysBetween(todayIso(), latestVisit.returnDate) : null;
   const urgency = days !== null ? returnUrgency(days) : null;
 
   return (
@@ -125,7 +118,7 @@ export function PatientHomePage() {
         {latestVisit ? (
           <>
             <p style={{ marginTop: 8, marginBottom: 8, fontSize: 22, fontWeight: 600, color: '#1565c0' }}>
-              {new Date(latestVisit.returnDate + 'T00:00:00').toLocaleDateString('pt-BR')}
+              {formatDateBR(latestVisit.returnDate)}
             </p>
             {urgency && <span className={`badge ${urgency.badgeClass}`}>{urgency.text}</span>}
           </>

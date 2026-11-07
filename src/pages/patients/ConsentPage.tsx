@@ -5,6 +5,7 @@ import { getPatient } from '../../firebase/patients';
 import { createConsent, listConsentsByPatient } from '../../firebase/consents';
 import type { Consent, ConsentType, Patient } from '../../types';
 import { SignaturePad } from '../../components/ui/SignaturePad';
+import { formatDateBR } from '../../lib/dates';
 
 const DATA_TERM_TEXT =
   'Declaro que fui informado(a) de que meus dados pessoais e informações de saúde serão utilizados ' +
@@ -135,7 +136,7 @@ function ConsentCard({
 
       {existing ? (
         <div className="info-banner">
-          Termo assinado em {new Date(existing.agreedAt).toLocaleDateString('pt-BR')}. Um novo consentimento pode ser
+          Termo assinado em {formatDateBR(existing.agreedAt)}. Um novo consentimento pode ser
           registrado a qualquer momento caso necessário.
         </div>
       ) : null}
@@ -150,7 +151,7 @@ function ConsentCard({
       </div>
       <div className="field">
         <label>Data</label>
-        <input type="text" value={new Date().toLocaleDateString('pt-BR')} disabled />
+        <input type="text" value={formatDateBR(new Date())} disabled />
       </div>
 
       <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 13, marginBottom: 12 }}>

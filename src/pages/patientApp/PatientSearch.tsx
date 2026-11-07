@@ -10,6 +10,7 @@ import { savePatientAccount } from '../../firebase/patientAccounts';
 import { hasActiveAvailability, summarizeAvailability } from '../../domain/availability';
 import { SPECIALTY_OPTIONS, WEEKDAY_LABELS, WEEKDAYS } from '../../domain/factories';
 import type { Availability, ProfessionalProfile, Specialty } from '../../types';
+import { formatDateBR } from '../../lib/dates';
 
 type FilterOption = 'todos' | 'disponivel' | Specialty;
 type SortOption = 'nome' | 'avaliacao';
@@ -270,7 +271,7 @@ export function PatientSearchPage() {
               <label>Nome completo (confirmação)</label>
               <input type="text" value={consentName} onChange={(e) => setConsentName(e.target.value)} placeholder={patientAccount?.name} />
             </div>
-            <p className="hint" style={{ marginBottom: 16 }}>Data: {new Date().toLocaleDateString('pt-BR')}</p>
+            <p className="hint" style={{ marginBottom: 16 }}>Data: {formatDateBR(new Date())}</p>
             {switchError && <div className="error-text" style={{ marginBottom: 12 }}>{switchError}</div>}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <button type="button" className="btn btn-primary" disabled={!consentName.trim() || processing} onClick={() => executeSwitch(true)}>

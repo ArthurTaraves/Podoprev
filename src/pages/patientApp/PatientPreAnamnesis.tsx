@@ -5,6 +5,7 @@ import { createPreAnamnesis, getPreAnamnesisForPatient, updatePreAnamnesisAnswer
 import { emptyAnamnesis } from '../../domain/factories';
 import { StepAnamnesis } from '../visits/steps/StepAnamnesis';
 import type { Anamnesis, PreAnamnesis } from '../../types';
+import { formatDateBR } from '../../lib/dates';
 
 type ViewMode = 'summary' | 'form';
 
@@ -177,7 +178,7 @@ export function PatientPreAnamnesisPage() {
         <span className="badge badge-low">Validada pelo profissional</span>
         {pre.reviewedAt && (
           <p className="hint" style={{ marginTop: 10, marginBottom: 12 }}>
-            Validada em {new Date(pre.reviewedAt).toLocaleDateString('pt-BR')}
+            Validada em {formatDateBR(pre.reviewedAt)}
           </p>
         )}
         <button type="button" className="btn btn-outline" onClick={viewAnswers}>

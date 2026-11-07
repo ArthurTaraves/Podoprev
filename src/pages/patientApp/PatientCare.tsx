@@ -4,7 +4,8 @@ import { useAuth } from '../../context/AuthContext';
 import { listVisitsByPatient } from '../../firebase/visits';
 import { listSwitchHistoryByPatient } from '../../firebase/switchHistory';
 import { listPrescriptionsByPatient } from '../../firebase/prescriptions';
-import { daysRemaining, isPrescriptionActive, toLocalIsoDate } from '../../domain/prescriptions';
+import { daysRemaining, isPrescriptionActive } from '../../domain/prescriptions';
+import { formatDateBR, todayIso as getTodayIso } from '../../lib/dates';
 import {
   notificationPermission,
   requestReminderPermission,
@@ -42,7 +43,7 @@ export function PatientCarePage() {
         : Promise.resolve([]),
     ]).then(async ([visits, switches, allPrescriptions]) => {
       const latest = visits[0];
-      const todayIso = toLocalIsoDate(new Date());
+      const todayIso = getTodayIso();
       const active = allPrescriptions.filter((p) => isPrescriptionActive(p, todayIso));
       setInstructions(latest?.careInstructions ?? []);
       setVisitDate(latest?.date ?? null);
@@ -72,7 +73,7 @@ export function PatientCarePage() {
 
   if (loading) return <p>Carregando…</p>;
 
-  const todayIso = toLocalIsoDate(new Date());
+  const todayIso = getTodayIso();
 
   return (
     <div>
@@ -123,7 +124,7 @@ export function PatientCarePage() {
 
       {visitDate && (
         <p className="hint" style={{ marginBottom: 16 }}>
-          Orientações do atendimento de {new Date(visitDate).toLocaleDateString('pt-BR')}
+          Orientações do atendimento de {formatDateBR(visitDate)}
         </p>
       )}
 

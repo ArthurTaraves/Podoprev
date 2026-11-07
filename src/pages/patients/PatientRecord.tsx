@@ -16,6 +16,7 @@ import { formatPhone } from '../../lib/phone';
 import { describeAttentionEvolution, describeScoreDiff } from '../../domain/evolution';
 import { StepAnamnesis } from '../visits/steps/StepAnamnesis';
 import { PrescriptionModal } from './PrescriptionModal';
+import { formatDateBR } from '../../lib/dates';
 
 type Tab = 'dados' | 'evolucao' | 'fotos' | 'consentimentos' | 'pre-anamnese';
 
@@ -226,7 +227,7 @@ export function PatientRecordPage() {
             </div>
             <div>
               <strong>Data de nascimento</strong>
-              <p>{new Date(patient.birthDate).toLocaleDateString('pt-BR')}</p>
+              <p>{formatDateBR(patient.birthDate)}</p>
             </div>
             <div>
               <strong>Telefone</strong>
@@ -316,7 +317,7 @@ export function PatientRecordPage() {
                   <div key={visit.id} className="timeline-item card">
                     <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
                       <div>
-                        <strong>{new Date(visit.date).toLocaleDateString('pt-BR')}</strong> — {visit.anamnesis.mainComplaint || 'Sem queixa registrada'}
+                        <strong>{formatDateBR(visit.date)}</strong> — {visit.anamnesis.mainComplaint || 'Sem queixa registrada'}
                         {isShared && <span className="badge badge-low" style={{ marginLeft: 8 }}>Compartilhado por {visit.professionalName}</span>}
                       </div>
                       <RiskBadge level={visit.risk.level} />
@@ -324,7 +325,7 @@ export function PatientRecordPage() {
                     {visit.hasCriticalAlert && <div className="alert-banner" style={{ marginTop: 10 }}>Sinal de alerta identificado neste atendimento.</div>}
                     <p style={{ marginTop: 8 }}>
                       <strong>Nível de atenção:</strong> {visit.risk.score} pontos · <strong>Retorno sugerido:</strong>{' '}
-                      {new Date(visit.returnDate).toLocaleDateString('pt-BR')}
+                      {formatDateBR(visit.returnDate)}
                     </p>
                     <div style={{ marginTop: -4, marginBottom: 8, fontSize: 13 }}>
                       <strong style={{ color: evolution.color ?? 'var(--color-text)' }}>
@@ -384,7 +385,7 @@ export function PatientRecordPage() {
                       <div key={id} className="card">
                         <img src={p.url} alt={p.caption ?? ''} style={{ width: '100%', borderRadius: 8 }} />
                         <div style={{ fontSize: 12, marginTop: 8 }}>
-                          <strong>{new Date(p.createdAt).toLocaleDateString('pt-BR')}</strong>
+                          <strong>{formatDateBR(p.createdAt)}</strong>
                           {p.foot && ` · Pé ${p.foot}`}
                           <br />
                           {p.caption || '—'}
@@ -406,7 +407,7 @@ export function PatientRecordPage() {
                     >
                       <img src={p.url} alt={p.caption ?? ''} />
                       <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
-                        {new Date(p.createdAt).toLocaleDateString('pt-BR')} — {p.caption || '—'}
+                        {formatDateBR(p.createdAt)} — {p.caption || '—'}
                       </div>
                     </div>
                   );
@@ -423,7 +424,7 @@ export function PatientRecordPage() {
             Esta anamnese foi preenchida pelo paciente e aguarda validação profissional.
           </div>
           <p className="hint" style={{ marginBottom: 16 }}>
-            Enviada em {new Date(preAnamnesis.createdAt).toLocaleDateString('pt-BR')}. Revise, corrija ou complemente antes de validar.
+            Enviada em {formatDateBR(preAnamnesis.createdAt)}. Revise, corrija ou complemente antes de validar.
           </p>
           <div className="card">
             <StepAnamnesis value={reviewedAnamnesis} onChange={setReviewedAnamnesis} />
@@ -451,7 +452,7 @@ export function PatientRecordPage() {
                 {consents.map((c) => (
                   <tr key={c.id}>
                     <td>{c.type === 'dados' ? 'Dados pessoais e de saúde' : 'Uso de imagem'}</td>
-                    <td>{new Date(c.agreedAt).toLocaleDateString('pt-BR')}</td>
+                    <td>{formatDateBR(c.agreedAt)}</td>
                     <td>{c.agreed ? 'Concedido' : 'Recusado'}</td>
                   </tr>
                 ))}

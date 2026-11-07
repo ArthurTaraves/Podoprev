@@ -10,6 +10,7 @@ import type { Appointment, Patient, SwitchHistoryEntry, Visit } from '../../type
 import { RiskBadge } from '../../components/ui/RiskBadge';
 import { generateVisitReportPdf } from '../../lib/pdf';
 import { AppointmentBooking } from './AppointmentBooking';
+import { formatDateBR } from '../../lib/dates';
 
 // Junta os resultados de várias consultas (uma por professionalId que o paciente
 // já teve) e remove duplicatas por id — necessário porque, em modo demonstração,
@@ -185,9 +186,9 @@ export function PatientHistoryPage() {
           )}
           {totalAtendimentos >= 2 && primeiroAtendimentoMs !== null && ultimoAtendimentoMs !== null && (
             <p className="hint" style={{ margin: '10px 0 0' }}>
-              Primeiro: {new Date(primeiroAtendimentoMs).toLocaleDateString('pt-BR')}
+              Primeiro: {formatDateBR(primeiroAtendimentoMs)}
               <br />
-              Último: {new Date(ultimoAtendimentoMs).toLocaleDateString('pt-BR')}
+              Último: {formatDateBR(ultimoAtendimentoMs)}
             </p>
           )}
         </div>
@@ -207,7 +208,7 @@ export function PatientHistoryPage() {
               {appointments.map((appt) => (
                 <div key={appt.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
                   <div>
-                    <strong>{new Date(appt.date + 'T00:00:00').toLocaleDateString('pt-BR')}</strong> — {appt.startTime} às {appt.endTime}
+                    <strong>{formatDateBR(appt.date)}</strong> — {appt.startTime} às {appt.endTime}
                   </div>
                   <span className="badge badge-low">Agendado pelo paciente</span>
                 </div>
@@ -292,7 +293,7 @@ export function PatientHistoryPage() {
             return (
               <div key={visit.id} className="timeline-item card" style={{ cursor: 'pointer' }} onClick={() => setExpandedId(expanded ? null : visit.id)}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-                  <strong>{new Date(visit.date).toLocaleDateString('pt-BR')}</strong>
+                  <strong>{formatDateBR(visit.date)}</strong>
                   <RiskBadge level={visit.risk.level} />
                 </div>
                 <p className="hint" style={{ marginTop: 4, marginBottom: 0 }}>
@@ -305,7 +306,7 @@ export function PatientHistoryPage() {
                   <strong>Queixa principal:</strong> {visit.anamnesis.mainComplaint || 'Não informada'}
                 </p>
                 <p>
-                  <strong>Retorno sugerido:</strong> {new Date(visit.returnDate + 'T00:00:00').toLocaleDateString('pt-BR')}
+                  <strong>Retorno sugerido:</strong> {formatDateBR(visit.returnDate)}
                 </p>
 
                 {expanded && (
