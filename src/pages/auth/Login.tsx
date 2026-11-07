@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { isFirebaseConfigured } from '../../firebase/config';
 import { auth } from '../../firebase/config';
@@ -11,7 +11,12 @@ type Profile = 'professional' | 'patient';
 export function LoginPage() {
   const { login, logout, loginDemo, loginDemoPatient } = useAuth();
   const navigate = useNavigate();
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [searchParams] = useSearchParams();
+  // ?perfil=podologo|paciente pré-seleciona o perfil (link direto para a demonstração).
+  const initialProfile = searchParams.get('perfil');
+  const [profile, setProfile] = useState<Profile | null>(
+    initialProfile === 'podologo' ? 'professional' : initialProfile === 'paciente' ? 'patient' : null,
+  );
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
