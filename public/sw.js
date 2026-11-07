@@ -1,5 +1,5 @@
 // Service worker do PodoPrev — só exibe/abre notificações de lembrete de
-// prescrição (ver src/mobile/prescriptionReminders.ts). Não intercepta
+// prescrição (ver src/lib/reminders.ts). Não intercepta
 // requisições nem faz cache: não tem handler de "fetch" de propósito.
 
 self.addEventListener('install', () => {
