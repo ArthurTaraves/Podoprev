@@ -156,20 +156,38 @@ export function LoginPage() {
 
         <div className="auth-links">
           <Link to="/forgot-password">Esqueci minha senha</Link>
-          {profile === 'professional' && (
-            <p style={{ marginTop: 10 }}>
-              Não tem conta? <Link to="/register">Cadastre-se como profissional</Link>
-            </p>
-          )}
-          {profile === 'patient' && (
-            <p style={{ marginTop: 10 }}>
-              Sem conta?{' '}
-              <Link to="/patient/register?mode=invite">Tenho código de convite</Link>
-              {' · '}
-              <Link to="/patient/register?mode=self">Cadastrar sem convite</Link>
-            </p>
-          )}
         </div>
+
+        {profile === 'professional' && (
+          <div style={{ marginTop: 16 }}>
+            <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--color-text-secondary)', marginBottom: 8 }}>
+              Ainda não tem conta?
+            </p>
+            <Link to="/register" style={{ textDecoration: 'none' }}>
+              <button type="button" className="btn btn-outline btn-block">
+                Cadastrar como profissional
+              </button>
+            </Link>
+          </div>
+        )}
+
+        {profile === 'patient' && (
+          <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--color-text-secondary)', marginBottom: 0 }}>
+              Ainda não tem conta?
+            </p>
+            <Link to="/patient/register?mode=invite" style={{ textDecoration: 'none' }}>
+              <button type="button" className="btn btn-outline btn-block">
+                🎟️ Tenho código de convite
+              </button>
+            </Link>
+            <Link to="/patient/register?mode=self" style={{ textDecoration: 'none' }}>
+              <button type="button" className="btn btn-outline btn-block">
+                Cadastrar sem convite
+              </button>
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   );
