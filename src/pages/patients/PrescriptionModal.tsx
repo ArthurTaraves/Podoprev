@@ -13,15 +13,6 @@ interface Props {
 
 type Frequency = 1 | 2 | 3 | 'custom';
 
-const timeInputStyle: React.CSSProperties = {
-  border: '1.5px solid var(--color-border)',
-  borderRadius: 'var(--radius-sm)',
-  padding: '9px 10px',
-  fontSize: 14,
-  fontFamily: 'inherit',
-  background: 'white',
-};
-
 export function PrescriptionModal({ patientId, patientName, onClose }: Props) {
   const { user, professional } = useAuth();
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
@@ -207,7 +198,6 @@ export function PrescriptionModal({ patientId, patientName, onClose }: Props) {
                 type="time"
                 value={time}
                 onChange={(e) => setTime(index, e.target.value)}
-                style={timeInputStyle}
                 aria-label={`Horário ${index + 1}`}
               />
             ))}

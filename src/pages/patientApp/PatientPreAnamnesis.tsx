@@ -128,7 +128,7 @@ export function PatientPreAnamnesisPage() {
       <div>
         <h1 style={{ fontSize: 20 }}>Pré-anamnese</h1>
         <div className="card empty-state">
-          <div style={{ fontSize: 32, marginBottom: 8 }}>📋</div>
+          <div className="empty-icon">📋</div>
           <strong>Preencha sua anamnese antes da consulta</strong>
           <p className="hint" style={{ marginTop: 6, marginBottom: 12 }}>
             Isso ajuda o profissional a se preparar para o atendimento.
@@ -147,7 +147,7 @@ export function PatientPreAnamnesisPage() {
       <div>
         <h1 style={{ fontSize: 20 }}>Pré-anamnese</h1>
         <div className="card empty-state">
-          <div style={{ fontSize: 32, marginBottom: 8 }}>⏳</div>
+          <div className="empty-icon">⏳</div>
           <span className="badge badge-moderate">Aguardando validação do profissional</span>
           <p className="hint" style={{ marginTop: 10, marginBottom: 12 }}>
             Sua anamnese foi enviada e será revisada pelo profissional.
@@ -165,7 +165,7 @@ export function PatientPreAnamnesisPage() {
     <div>
       <h1 style={{ fontSize: 20 }}>Pré-anamnese</h1>
       <div className="card empty-state">
-        <div style={{ fontSize: 32, marginBottom: 8 }}>✅</div>
+        <div className="empty-icon">✅</div>
         <span className="badge badge-low">Validada pelo profissional</span>
         {pre.reviewedAt && (
           <p className="hint" style={{ marginTop: 10, marginBottom: 12 }}>

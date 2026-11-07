@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { Disclaimer } from '../../components/Disclaimer';
+import { mergeById } from '../../lib/mergeById';
 import { NoProfessionalCard } from '../../components/NoProfessionalCard';
 import { getPatient } from '../../firebase/patients';
 import { listVisitsByPatient } from '../../firebase/visits';
@@ -11,16 +13,6 @@ import { RiskBadge } from '../../components/ui/RiskBadge';
 import { generateVisitReportPdf } from '../../lib/pdf';
 import { AppointmentBooking } from './AppointmentBooking';
 import { formatDateBR } from '../../lib/dates';
-
-// Junta os resultados de várias consultas (uma por professionalId que o paciente
-// já teve) e remove duplicatas por id — necessário porque, em modo demonstração,
-// a consulta em memória ignora professionalId e devolveria a mesma lista completa
-// a cada chamada; no Firestore real cada chamada já devolve um conjunto disjunto.
-function mergeById<T extends { id: string }>(items: T[]): T[] {
-  const map = new Map<string, T>();
-  for (const item of items) map.set(item.id, item);
-  return Array.from(map.values());
-}
 
 // Helpers puros de data/duração — só apresentação, nenhum dado clínico novo.
 const MES_ABREV = ['jan.', 'fev.', 'mar.', 'abr.', 'mai.', 'jun.', 'jul.', 'ago.', 'set.', 'out.', 'nov.', 'dez.'];
@@ -274,7 +266,7 @@ export function PatientHistoryPage() {
       <h3>Atendimentos</h3>
       {visits.length === 0 ? (
         <div className="card empty-state">
-          <div style={{ fontSize: 32, marginBottom: 8 }}>📋</div>
+          <div className="empty-icon">📋</div>
           Nenhum atendimento registrado ainda. Após sua primeira consulta, o histórico aparecerá aqui.
         </div>
       ) : (
@@ -328,9 +320,7 @@ export function PatientHistoryPage() {
         </div>
       )}
 
-      <p className="disclaimer">
-        Esta é uma ferramenta de apoio à triagem podológica. Não substitui diagnóstico ou prescrição médica.
-      </p>
+      <Disclaimer />
     </div>
   );
 }

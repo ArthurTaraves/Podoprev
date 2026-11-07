@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { Disclaimer } from '../../components/Disclaimer';
 import { listVisitsByPatient } from '../../firebase/visits';
 import { listSwitchHistoryByPatient } from '../../firebase/switchHistory';
 import { listPrescriptionsByPatient } from '../../firebase/prescriptions';
@@ -159,7 +160,7 @@ export function PatientCarePage() {
 
       {instructions.length === 0 ? (
         <div className="card empty-state">
-          <div style={{ fontSize: 32, marginBottom: 8 }}>📋</div>
+          <div className="empty-icon">📋</div>
           {recentlySwitched ? 'Ainda não existem orientações de cuidado registradas com seu profissional atual.' : 'Nenhuma orientação registrada ainda.'}
           <p className="care-description" style={{ marginTop: 6, marginBottom: 0, fontSize: 13 }}>
             {recentlySwitched ? 'Consulte orientações de atendimentos anteriores na aba Histórico.' : 'Após sua consulta, as orientações do seu podólogo aparecerão aqui.'}
@@ -185,9 +186,7 @@ export function PatientCarePage() {
         ))
       )}
 
-      <p className="disclaimer">
-        Esta é uma ferramenta de apoio à triagem podológica. Não substitui diagnóstico ou prescrição médica.
-      </p>
+      <Disclaimer />
     </div>
   );
 }

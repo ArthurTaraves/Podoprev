@@ -70,6 +70,13 @@ const patientProfessionalLinks = new Map<string, PatientProfessionalLink>(
 let switchHistory: SwitchHistoryEntry[] = demoSwitchHistoryEntries.map((s) => ({ ...s }));
 const professionalValidations = new Map<string, ProfessionalValidation>();
 
+// Mesmo filtro duplo (patientId + professionalId) que as consultas reais fazem no
+// Firestore — ver gotcha 1 do CLAUDE.md. Filtrar só por patientId aqui escondia,
+// no demo, o bloqueio de histórico entre profissionais (bug da Onda 5).
+function byPatientAndProfessional<T extends { patientId: string; professionalId: string }>(list: T[], patientId: string, professionalId: string): T[] {
+  return list.filter((item) => item.patientId === patientId && item.professionalId === professionalId);
+}
+
 // --- patients ---
 
 export async function demoCreatePatient(data: Omit<Patient, 'id' | 'isActive' | 'createdAt' | 'updatedAt'>): Promise<string> {
@@ -115,7 +122,7 @@ export async function demoUpdateVisit(id: string, data: Partial<Visit>): Promise
 // histórico de um profissional anterior mesmo sem consentimento, o que mascararia
 // justamente o comportamento de segurança que a Onda 4 precisa demonstrar.
 export async function demoListVisitsByPatient(patientId: string, professionalId: string): Promise<Visit[]> {
-  return visits.filter((v) => v.patientId === patientId && v.professionalId === professionalId).sort((a, b) => b.date - a.date);
+  return byPatientAndProfessional(visits, patientId, professionalId).sort((a, b) => b.date - a.date);
 }
 
 export async function demoListVisitsByProfessional(professionalId: string): Promise<Visit[]> {
@@ -131,7 +138,7 @@ export async function demoCreateConsent(data: Omit<Consent, 'id'>): Promise<stri
 }
 
 export async function demoListConsentsByPatient(patientId: string, professionalId: string): Promise<Consent[]> {
-  return consents.filter((c) => c.patientId === patientId && c.professionalId === professionalId).sort((a, b) => b.agreedAt - a.agreedAt);
+  return byPatientAndProfessional(consents, patientId, professionalId).sort((a, b) => b.agreedAt - a.agreedAt);
 }
 
 // --- photos ---
@@ -143,7 +150,7 @@ export async function demoUploadPatientPhoto(file: File, meta: Omit<PatientPhoto
 }
 
 export async function demoListPhotosByPatient(patientId: string, professionalId: string): Promise<PatientPhoto[]> {
-  return photos.filter((p) => p.patientId === patientId && p.professionalId === professionalId).sort((a, b) => b.createdAt - a.createdAt);
+  return byPatientAndProfessional(photos, patientId, professionalId).sort((a, b) => b.createdAt - a.createdAt);
 }
 
 export async function demoListPhotosByVisit(visitId: string): Promise<PatientPhoto[]> {
@@ -250,7 +257,7 @@ export async function demoCreatePreAnamnesis(data: {
 }
 
 export async function demoGetPreAnamnesisForPatient(patientId: string, professionalId: string): Promise<PreAnamnesis | null> {
-  return preAnamneses.find((p) => p.patientId === patientId && p.professionalId === professionalId) ?? null;
+  return byPatientAndProfessional(preAnamneses, patientId, professionalId)[0] ?? null;
 }
 
 export async function demoListPendingPreAnamnesisByProfessional(professionalId: string): Promise<PreAnamnesis[]> {
@@ -296,7 +303,7 @@ export async function demoCancelAppointment(id: string): Promise<void> {
 }
 
 export async function demoListAppointmentsByPatient(patientId: string, professionalId: string): Promise<Appointment[]> {
-  return appointments.filter((a) => a.patientId === patientId && a.professionalId === professionalId);
+  return byPatientAndProfessional(appointments, patientId, professionalId);
 }
 
 export async function demoListConfirmedAppointmentsByProfessional(professionalId: string): Promise<Appointment[]> {
@@ -432,8 +439,7 @@ export async function demoCreatePrescription(data: Omit<Prescription, 'id' | 'cr
 }
 
 export async function demoListPrescriptionsByPatient(patientId: string, professionalId: string): Promise<Prescription[]> {
-  return prescriptions
-    .filter((p) => p.patientId === patientId && p.professionalId === professionalId)
+  return byPatientAndProfessional(prescriptions, patientId, professionalId)
     .sort((a, b) => b.createdAt - a.createdAt);
 }
 

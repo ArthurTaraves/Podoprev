@@ -12,7 +12,7 @@ export function NoProfessionalCard({ icon, message, title = 'Nenhum podólogo vi
   return (
     <div style={{ padding: 16 }}>
       <div className="card" style={{ textAlign: 'center', padding: 24 }}>
-        <p style={{ fontSize: 32, marginBottom: 8 }}>{icon}</p>
+        <p className="empty-icon">{icon}</p>
         <strong>{title}</strong>
         <p style={{ fontSize: 13, marginTop: 8 }}>{message}</p>
         <Link to="/patient/search" className="btn btn-primary btn-block" style={{ marginTop: 16 }}>

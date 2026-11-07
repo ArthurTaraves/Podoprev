@@ -853,6 +853,34 @@ button {
   color: var(--color-text-muted);
 }
 
+/* Emoji grande no topo dos cards de estado vazio. */
+.empty-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+
+/* Botão com aparência de link (ex.: "← Voltar" no cadastro do paciente). */
+.btn-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--color-primary);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* Fora da lista de .field acima de propósito: os horários ficam lado a lado,
+   mais compactos que os demais campos (ex.: modal de prescrição). */
+input[type='time'] {
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 9px 10px;
+  font-size: 14px;
+  font-family: inherit;
+  background: white;
+}
+
 .return-card {
   border-left: 4px solid var(--color-border);
 }
