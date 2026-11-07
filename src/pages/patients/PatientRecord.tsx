@@ -15,6 +15,7 @@ import { generateVisitReportPdf } from '../../lib/pdf';
 import { formatPhone } from '../../lib/phone';
 import { describeAttentionEvolution, describeScoreDiff } from '../../domain/evolution';
 import { StepAnamnesis } from '../visits/steps/StepAnamnesis';
+import { PrescriptionModal } from './PrescriptionModal';
 
 type Tab = 'dados' | 'evolucao' | 'fotos' | 'consentimentos' | 'pre-anamnese';
 
@@ -42,6 +43,7 @@ export function PatientRecordPage() {
   // existe quando este paciente veio de uma troca e há um vínculo prévio registrado.
   const [previousProfessionalName, setPreviousProfessionalName] = useState<string | null>(null);
   const [historyShared, setHistoryShared] = useState(false);
+  const [prescribing, setPrescribing] = useState(false);
 
   useEffect(() => {
     if (!id || !user) return;
@@ -166,6 +168,9 @@ export function PatientRecordPage() {
           </button>
           <button className="btn btn-outline btn-sm" style={{ flex: 1 }} onClick={() => navigate(`/app/patients/${id}/consent`)}>
             Termos LGPD
+          </button>
+          <button className="btn btn-outline btn-sm" style={{ flex: '1 1 100%' }} onClick={() => setPrescribing(true)}>
+            🔔 Prescrever cuidado
           </button>
         </div>
       </div>
@@ -455,6 +460,8 @@ export function PatientRecordPage() {
           )}
         </div>
       )}
+
+      {prescribing && id && <PrescriptionModal patientId={id} patientName={patient.fullName} onClose={() => setPrescribing(false)} />}
     </div>
   );
 }
