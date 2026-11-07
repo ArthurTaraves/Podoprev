@@ -43,6 +43,14 @@ export function PrescriptionModal({ patientId, patientName, onClose }: Props) {
     listPrescriptionsByPatient(patientId, user.uid).then(setPrescriptions);
   }, [patientId, user]);
 
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+    }
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [onClose]);
+
   function changeCount(count: number) {
     setTimes(defaultPrescriptionTimes(count));
   }
