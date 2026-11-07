@@ -225,16 +225,19 @@ export function PatientHomePage() {
           </div>
 
           <div className="card" style={{ marginBottom: 16 }}>
-            <strong>Lembretes no celular</strong>
+            <strong>Lembretes</strong>
             <p style={{ marginTop: 4, fontSize: 13 }}>
-              Ative para receber notificações ao longo do dia lembrando dos seus cuidados (ex.: hidratar os pés).
+              Lembretes de cuidados prescritos pelo seu podólogo chegam pelo navegador (com o site aberto) ou pelo app
+              Android instalado — ative na aba Cuidados. O botão abaixo ativa, no app Android, lembretes das
+              orientações do seu último atendimento (ex.: hidratar os pés).
             </p>
             <button className="btn btn-primary btn-block" onClick={handleEnableReminders} disabled={notificationStatus === 'requesting'}>
               {notificationStatus === 'on' ? 'Lembretes ativados ✓' : notificationStatus === 'requesting' ? 'Ativando…' : 'Ativar lembretes'}
             </button>
             {notificationStatus === 'unavailable' && (
-              <p className="hint" style={{ marginTop: 8 }}>
-                Lembretes automáticos funcionam apenas no aplicativo instalado no celular (não no navegador).
+              <p className="hint" style={{ marginTop: 8, fontSize: 13 }}>
+                Este botão funciona só no app Android instalado. No navegador, ative os lembretes na aba{' '}
+                <Link to="/patient/care">Cuidados</Link>.
               </p>
             )}
           </div>
