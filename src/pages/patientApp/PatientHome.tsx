@@ -5,7 +5,9 @@ import { getPatient } from '../../firebase/patients';
 import { listVisitsByPatient } from '../../firebase/visits';
 import { getProfessionalProfile } from '../../firebase/professionalProfiles';
 import { listSwitchHistoryByPatient } from '../../firebase/switchHistory';
-import type { Patient, ProfessionalProfile, Visit } from '../../types';
+import { listPrescriptionsByPatient } from '../../firebase/prescriptions';
+import { isPrescriptionActive } from '../../domain/prescriptions';
+import type { Patient, Prescription, ProfessionalProfile, Visit } from '../../types';
 import { RiskBadge } from '../../components/ui/RiskBadge';
 import { daysBetween, formatDateBR, todayIso } from '../../lib/dates';
 
@@ -47,6 +49,7 @@ export function PatientHomePage() {
   const [latestVisit, setLatestVisit] = useState<Visit | null>(null);
   const [professionalProfile, setProfessionalProfile] = useState<ProfessionalProfile | null>(null);
   const [recentlySwitched, setRecentlySwitched] = useState(false);
+  const [activePrescriptions, setActivePrescriptions] = useState<Prescription[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -58,11 +61,14 @@ export function PatientHomePage() {
       listVisitsByPatient(patientAccount.patientId, patientAccount.professionalId),
       getProfessionalProfile(patientAccount.professionalId),
       listSwitchHistoryByPatient(patientAccount.patientId),
-    ]).then(([p, visits, profile, switches]) => {
+      listPrescriptionsByPatient(patientAccount.patientId, patientAccount.professionalId),
+    ]).then(([p, visits, profile, switches, prescriptions]) => {
       setPatient(p);
       setLatestVisit(visits[0] ?? null);
       setProfessionalProfile(profile);
       setRecentlySwitched(switches.length > 0);
+      const today = todayIso();
+      setActivePrescriptions(prescriptions.filter((prescription) => isPrescriptionActive(prescription, today)));
       setLoading(false);
     });
   }, [patientAccount]);
@@ -157,9 +163,29 @@ export function PatientHomePage() {
         </Link>
       </div>
 
-      {latestVisit && (
+      {(latestVisit || activePrescriptions.length > 0) && (
         <div style={{ marginBottom: 8 }}>
           <strong>Seus cuidados</strong>
+        </div>
+      )}
+
+      {/* Resumo das prescrições ativas — aparece mesmo sem atendimento registrado,
+          já que o podólogo pode prescrever antes da primeira avaliação. */}
+      {activePrescriptions.length > 0 && (
+        <div className="card" style={{ marginBottom: 16, borderLeft: '4px solid #f59e0b', background: '#fffbeb' }}>
+          <strong>
+            🔔 {activePrescriptions.length === 1 ? '1 cuidado prescrito' : `${activePrescriptions.length} cuidados prescritos`} pelo seu podólogo
+          </strong>
+          <ul style={{ margin: '8px 0 12px', paddingLeft: 18, fontSize: 13 }}>
+            {activePrescriptions.map((prescription) => (
+              <li key={prescription.id}>
+                {prescription.description} <span className="hint">({prescription.times.join(' · ')})</span>
+              </li>
+            ))}
+          </ul>
+          <Link to="/patient/care" className="btn btn-outline btn-block">
+            Ver todos em Cuidados →
+          </Link>
         </div>
       )}
 
