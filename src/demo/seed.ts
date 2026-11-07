@@ -9,6 +9,7 @@ import type {
   PatientAccount,
   PatientProfessionalLink,
   PreAnamnesis,
+  Prescription,
   Professional,
   ProfessionalProfile,
   SwitchHistoryEntry,
@@ -756,5 +757,26 @@ export const demoPreAnamneses: PreAnamnesis[] = [
     reviewedAt: timestampDaysAgo(30),
     preenchidoPor: 'demo-joao-standin',
     validadoPor: DEMO_PROFESSIONAL_UID,
+  },
+];
+
+// --- Prescrições de cuidado — uma ativa para Maria (paciente da conta demo),
+// pra aba "Cuidados" já mostrar a seção "Prescrito pelo seu podólogo".
+function isoDaysAhead(days: number): string {
+  return isoDaysAgo(-days);
+}
+
+export const demoPrescriptions: Prescription[] = [
+  {
+    id: 'demo-prescription-1',
+    patientId: patientMaria.id,
+    professionalId: DEMO_PROFESSIONAL_UID,
+    professionalName: demoProfessional.name,
+    description: 'Limpar a região do calcanhar com soro fisiológico e secar bem',
+    timesPerDay: 2,
+    times: ['08:00', '20:00'],
+    startDate: isoDaysAgo(3),
+    endDate: isoDaysAhead(7),
+    createdAt: timestampDaysAgo(3),
   },
 ];

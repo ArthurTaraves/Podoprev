@@ -230,6 +230,24 @@ export interface PreAnamnesis {
   validadoPor?: string; // uid do profissional que validou
 }
 
+// --- Prescrições de cuidado (escritas pelo podólogo, lidas pelo paciente) ---
+// Diferente de CareInstruction (que nasce dentro de um atendimento e tem horários
+// distribuídos automaticamente), aqui o profissional define os horários exatos e
+// um período de validade opcional — é isso que alimenta os lembretes do paciente.
+
+export interface Prescription {
+  id: string;
+  patientId: string;
+  professionalId: string;
+  professionalName: string;
+  description: string;
+  timesPerDay: number;
+  times: string[]; // "HH:mm", um por vez ao dia
+  startDate?: string; // ISO yyyy-mm-dd; ausente = vale desde a criação
+  endDate?: string; // ISO yyyy-mm-dd; ausente = sem data de término
+  createdAt: number;
+}
+
 // --- Agendamento (Onda 2) ---
 // Duas coleções: `appointments` guarda o dado real (com patientId); `appointmentSlots`
 // é o espelho sem nenhum dado pessoal, só ocupação — é o que o paciente consulta pra

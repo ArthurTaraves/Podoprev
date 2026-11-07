@@ -11,6 +11,7 @@ import type {
   PatientPhoto,
   PatientProfessionalLink,
   PreAnamnesis,
+  Prescription,
   Professional,
   ProfessionalProfile,
   ProfessionalValidation,
@@ -26,6 +27,7 @@ import {
   demoPatientProfessionalLinks,
   demoPatients,
   demoPreAnamneses,
+  demoPrescriptions,
   demoProfessional,
   demoProfessionalProfiles,
   demoProfessionals,
@@ -56,6 +58,7 @@ const patientAccounts = new Map<string, PatientAccount>([[demoPatientAccount.uid
 const patientInvites = new Map<string, PatientInvite>();
 const availabilities = new Map<string, Availability>(demoAvailabilities.map((a) => [a.professionalId, { ...a }]));
 let preAnamneses: PreAnamnesis[] = demoPreAnamneses.map((p) => ({ ...p }));
+let prescriptions: Prescription[] = demoPrescriptions.map((p) => ({ ...p }));
 let appointments: Appointment[] = demoAppointments.map((a) => ({ ...a }));
 const appointmentSlots = new Map<string, AppointmentSlot>(demoAppointmentSlots.map((s) => [`${s.professionalId}_${s.date}_${s.startTime}`, { ...s }]));
 const professionalProfiles = new Map<string, ProfessionalProfile>(
@@ -418,4 +421,22 @@ export async function demoSaveProfessionalValidation(
     submittedAt: existing?.submittedAt ?? now,
     updatedAt: now,
   });
+}
+
+// --- prescriptions ---
+
+export async function demoCreatePrescription(data: Omit<Prescription, 'id' | 'createdAt'>): Promise<string> {
+  const id = `demo-prescription-${uuid()}`;
+  prescriptions.push({ ...data, id, createdAt: Date.now() });
+  return id;
+}
+
+export async function demoListPrescriptionsByPatient(patientId: string, professionalId: string): Promise<Prescription[]> {
+  return prescriptions
+    .filter((p) => p.patientId === patientId && p.professionalId === professionalId)
+    .sort((a, b) => b.createdAt - a.createdAt);
+}
+
+export async function demoDeletePrescription(id: string): Promise<void> {
+  prescriptions = prescriptions.filter((p) => p.id !== id);
 }
