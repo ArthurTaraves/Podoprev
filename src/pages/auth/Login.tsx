@@ -126,15 +126,19 @@ export function LoginPage() {
 
         <div className="auth-links">
           <Link to="/forgot-password">Esqueci minha senha</Link>
-          <p style={{ marginTop: 10 }}>
-            Não tem conta? <Link to="/register">Cadastre-se como profissional</Link>
-          </p>
-          <p style={{ marginTop: 6 }}>
-            Paciente sem conta?{' '}
-            <Link to="/patient/register?mode=invite">Tenho código de convite</Link>
-            {' · '}
-            <Link to="/patient/register?mode=self">Cadastrar sem convite</Link>
-          </p>
+          {profile === 'professional' && (
+            <p style={{ marginTop: 10 }}>
+              Não tem conta? <Link to="/register">Cadastre-se como profissional</Link>
+            </p>
+          )}
+          {profile === 'patient' && (
+            <p style={{ marginTop: 10 }}>
+              Sem conta?{' '}
+              <Link to="/patient/register?mode=invite">Tenho código de convite</Link>
+              {' · '}
+              <Link to="/patient/register?mode=self">Cadastrar sem convite</Link>
+            </p>
+          )}
         </div>
       </div>
     </div>
