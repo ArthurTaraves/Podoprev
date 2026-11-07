@@ -369,7 +369,7 @@ export function PatientRecordPage() {
                       <p><strong>Orientações ao paciente:</strong> {visit.careInstructions.map((c) => c.title).join(', ')}</p>
                     )}
                     <button className="btn btn-outline btn-sm" disabled={generatingId === visit.id} onClick={() => handleGeneratePdf(visit)}>
-                      {generatingId === visit.id ? 'Gerando PDF…' : 'Gerar relatório PDF'}
+                      {generatingId === visit.id ? 'Gerando PDF…' : 'PDF deste atendimento'}
                     </button>
                   </div>
                 );
