@@ -1,5 +1,6 @@
 import type { Availability, AvailabilityBlock, ScheduleBlock, Weekday } from '../types';
 import { WEEKDAYS } from './factories';
+import { toIsoDate } from '../lib/dates';
 
 // Validação da disponibilidade configurada pelo profissional — puramente
 // declarativa, sem efeito colateral. Retorna a primeira mensagem de erro
@@ -80,13 +81,6 @@ const WEEKDAY_BY_JS_DAY: Weekday[] = ['domingo', 'segunda', 'terca', 'quarta', '
 export function weekdayFromDate(dateIso: string): Weekday {
   const [y, m, d] = dateIso.split('-').map(Number);
   return WEEKDAY_BY_JS_DAY[new Date(y, m - 1, d).getDay()];
-}
-
-export function toIsoDate(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
 }
 
 export function addMinutesToTime(time: string, minutes: number): string {

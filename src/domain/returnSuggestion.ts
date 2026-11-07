@@ -1,3 +1,4 @@
+import { addDaysIso, toIsoDate } from '../lib/dates';
 import type { RiskLevel } from '../types';
 
 // Sugestão de retorno preventivo com base na classificação de risco.
@@ -17,7 +18,6 @@ export const RETURN_DESCRIPTION: Record<RiskLevel, string> = {
 
 export function suggestReturnDate(level: RiskLevel, fromDate: Date = new Date()): string {
   const days = RETURN_DAYS[level];
-  const result = new Date(fromDate);
-  result.setDate(result.getDate() + days);
-  return result.toISOString().slice(0, 10);
+  // Dia local — toISOString() devolveria o dia seguinte para atendimentos após 21h.
+  return addDaysIso(toIsoDate(fromDate), days);
 }

@@ -1,3 +1,4 @@
+import { daysBetween, toIsoDate } from '../lib/dates';
 import type { Patient, RiskLevel, Visit } from '../types';
 
 // Lógica FIXA de priorização de pacientes — o núcleo do "Painel de Ação".
@@ -33,19 +34,12 @@ export const PRIORITY_LABELS: Record<ActionPriority, string> = {
   em_dia: 'Em dia',
 };
 
-function daysBetween(returnDateIso: string, today: Date): number {
-  const [y, m, d] = returnDateIso.split('-').map(Number);
-  const returnDate = new Date(y, (m ?? 1) - 1, d ?? 1);
-  const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  return Math.round((returnDate.getTime() - todayMidnight.getTime()) / 86_400_000);
-}
-
 export function computeActionStatus(patient: Patient, latestVisit: Visit | null, today: Date = new Date()): PatientActionStatus {
   if (!latestVisit) {
     return { patient, latestVisit: null, attentionLevel: null, nextReturnDate: null, daysUntilReturn: null, priority: 'sem_atendimento' };
   }
 
-  const daysUntilReturn = daysBetween(latestVisit.returnDate, today);
+  const daysUntilReturn = daysBetween(toIsoDate(today), latestVisit.returnDate);
   let priority: ActionPriority;
   if (daysUntilReturn < 0) priority = 'atrasado';
   else if (daysUntilReturn === 0) priority = 'hoje';

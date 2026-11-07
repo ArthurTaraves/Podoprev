@@ -1,7 +1,8 @@
 import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import type { Prescription } from '../types';
-import { isPrescriptionActive, toLocalIsoDate } from '../domain/prescriptions';
+import { isPrescriptionActive } from '../domain/prescriptions';
+import { toIsoDate } from '../lib/dates';
 
 // Lembretes das prescrições do podólogo, nos horários exatos que ele definiu.
 //
@@ -34,7 +35,7 @@ function upcomingOccurrences(prescriptions: Prescription[], horizonDays: number,
   const result: Occurrence[] = [];
   for (let offset = 0; offset <= horizonDays; offset++) {
     const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);
-    const dayIso = toLocalIsoDate(day);
+    const dayIso = toIsoDate(day);
     for (const prescription of prescriptions) {
       if (!isPrescriptionActive(prescription, dayIso)) continue;
       for (const time of prescription.times) {

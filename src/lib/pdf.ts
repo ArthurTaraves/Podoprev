@@ -2,6 +2,7 @@ import jsPDF from 'jspdf';
 import type { Patient, PatientPhoto, Visit } from '../types';
 import { calculateAge } from '../domain/riskScore';
 import { RETURN_DESCRIPTION } from '../domain/returnSuggestion';
+import { formatDateBR, toIsoDate } from './dates';
 
 const SIGN_LABELS: { key: 'ferida' | 'vermelhidao' | 'rachadura' | 'calo' | 'micose' | 'unhaEncravada' | 'secrecao' | 'dorAoExame'; label: string }[] = [
   { key: 'dorAoExame', label: 'Dor' },
@@ -90,7 +91,7 @@ export async function generateVisitReportPdf(patient: Patient, visit: Visit, pho
   doc.setFontSize(9);
   doc.setTextColor(100, 116, 139);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Emitido em ${new Date().toLocaleDateString('pt-BR')}`, MARGIN, y);
+  doc.text(`Emitido em ${formatDateBR(new Date())}`, MARGIN, y);
   y += 10;
 
   // Dados do paciente
@@ -104,7 +105,7 @@ export async function generateVisitReportPdf(patient: Patient, visit: Visit, pho
 
   // Dados do atendimento
   addSection('Dados do atendimento');
-  addLine('Data do atendimento', new Date(visit.date).toLocaleDateString('pt-BR'));
+  addLine('Data do atendimento', formatDateBR(visit.date));
   addLine('Profissional responsável', visit.professionalName);
   addLine('Queixa principal', visit.anamnesis.mainComplaint);
   y += 3;
@@ -159,7 +160,7 @@ export async function generateVisitReportPdf(patient: Patient, visit: Visit, pho
 
   // Retorno
   addSection('Sugestão de retorno');
-  addLine('Data sugerida', new Date(visit.returnDate).toLocaleDateString('pt-BR'));
+  addLine('Data sugerida', formatDateBR(visit.returnDate));
   addParagraph(RETURN_DESCRIPTION[visit.risk.level]);
 
   // Fotos
@@ -192,5 +193,5 @@ export async function generateVisitReportPdf(patient: Patient, visit: Visit, pho
     'e observados — a decisão clínica é sempre do profissional responsável.';
   doc.text(doc.splitTextToSize(disclaimer, CONTENT_WIDTH), MARGIN, 285);
 
-  doc.save(`relatorio-${patient.fullName.replace(/\s+/g, '_')}-${new Date(visit.date).toISOString().slice(0, 10)}.pdf`);
+  doc.save(`relatorio-${patient.fullName.replace(/\s+/g, '_')}-${toIsoDate(visit.date)}.pdf`);
 }

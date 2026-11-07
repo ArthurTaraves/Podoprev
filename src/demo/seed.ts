@@ -20,6 +20,7 @@ import { calculateAge, calculateRiskScore } from '../domain/riskScore';
 import { suggestReturnDate } from '../domain/returnSuggestion';
 import { hasCriticalAlert } from '../domain/alertChecklist';
 import { deriveCareInstructions } from '../domain/careInstructions';
+import { addDaysIso, todayIso } from '../lib/dates';
 
 // Dados de demonstração — só existem em memória, nunca tocam o Firebase. Servem
 // para visualizar o Painel de Ação e o restante da interface com uma situação
@@ -65,9 +66,7 @@ export const demoProfessionalC: Professional = {
 export const demoProfessionals: Professional[] = [demoProfessionalB, demoProfessionalC];
 
 function isoDaysAgo(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  return d.toISOString().slice(0, 10);
+  return addDaysIso(todayIso(), -days);
 }
 
 function timestampDaysAgo(days: number): number {
@@ -689,9 +688,7 @@ export const demoAvailabilities: Availability[] = [
 // --- Agendamentos (Onda 2) — uma consulta confirmada futura de Maria com o
 // profissional atual (A), visível tanto na Agenda dele quanto no Histórico dela.
 function nextWeekdayIso(daysAhead: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + daysAhead);
-  return d.toISOString().slice(0, 10);
+  return addDaysIso(todayIso(), daysAhead);
 }
 
 const demoAppointmentDate = nextWeekdayIso(7);
@@ -762,13 +759,6 @@ export const demoPreAnamneses: PreAnamnesis[] = [
 
 // --- Prescrições de cuidado — duas ativas para Maria (paciente da conta demo),
 // pra aba "Cuidados" já mostrar a seção "Prescrito pelo seu podólogo".
-// Data em horário LOCAL (não toISOString/UTC, como isoDaysAgo): o "Faltam N dias"
-// da tela compara com o dia local e erraria por 1 depois das 21h no Brasil.
-function localIsoDaysAhead(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
 
 export const demoPrescriptions: Prescription[] = [
   {
@@ -789,7 +779,7 @@ export const demoPrescriptions: Prescription[] = [
     description: 'Trocar o curativo',
     timesPerDay: 1,
     times: ['09:00'],
-    endDate: localIsoDaysAhead(14),
+    endDate: addDaysIso(todayIso(), 14),
     createdAt: timestampDaysAgo(2),
   },
 ];
