@@ -28,6 +28,12 @@ export function LoginPage() {
     e.preventDefault();
     setError('');
     if (!profile) return;
+    // Sem Firebase não existe conta real — sem isso a chamada iria ao Google com
+    // uma chave falsa e voltaria como "E-mail ou senha inválidos", o que engana.
+    if (!isFirebaseConfigured) {
+      setError('No modo demonstração não há contas reais. Use o botão de demonstração acima.');
+      return;
+    }
     setLoading(true);
     try {
       // A seleção de perfil não muda a lógica de autenticação — o Firebase Auth

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { isFirebaseConfigured } from '../../firebase/config';
 
 export function ForgotPasswordPage() {
   const { resetPassword } = useAuth();
@@ -12,6 +13,10 @@ export function ForgotPasswordPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
+    if (!isFirebaseConfigured) {
+      setError('No modo demonstração não há contas reais, então não há senha para recuperar.');
+      return;
+    }
     setLoading(true);
     try {
       await resetPassword(email);

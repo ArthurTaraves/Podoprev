@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { isFirebaseConfigured } from '../../firebase/config';
 
 export function RegisterPage() {
   const { registerProfessional } = useAuth();
@@ -23,6 +24,13 @@ export function RegisterPage() {
     }
     if (password.length < 6) {
       setError('A senha deve ter pelo menos 6 caracteres.');
+      return;
+    }
+
+    // registerProfessional() não tem caminho demo (só o cadastro de paciente tem) —
+    // sem isso a chamada ia ao Google com chave falsa e culpava o e-mail digitado.
+    if (!isFirebaseConfigured) {
+      setError('O cadastro de profissional não está disponível no modo demonstração. Use "Entrar como podólogo (demonstração)" na tela de login.');
       return;
     }
 
