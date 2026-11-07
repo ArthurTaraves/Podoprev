@@ -760,10 +760,14 @@ export const demoPreAnamneses: PreAnamnesis[] = [
   },
 ];
 
-// --- Prescrições de cuidado — uma ativa para Maria (paciente da conta demo),
+// --- Prescrições de cuidado — duas ativas para Maria (paciente da conta demo),
 // pra aba "Cuidados" já mostrar a seção "Prescrito pelo seu podólogo".
-function isoDaysAhead(days: number): string {
-  return isoDaysAgo(-days);
+// Data em horário LOCAL (não toISOString/UTC, como isoDaysAgo): o "Faltam N dias"
+// da tela compara com o dia local e erraria por 1 depois das 21h no Brasil.
+function localIsoDaysAhead(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 export const demoPrescriptions: Prescription[] = [
@@ -772,11 +776,20 @@ export const demoPrescriptions: Prescription[] = [
     patientId: patientMaria.id,
     professionalId: DEMO_PROFESSIONAL_UID,
     professionalName: demoProfessional.name,
-    description: 'Limpar a região do calcanhar com soro fisiológico e secar bem',
+    description: 'Limpar a ferida com soro fisiológico',
     timesPerDay: 2,
     times: ['08:00', '20:00'],
-    startDate: isoDaysAgo(3),
-    endDate: isoDaysAhead(7),
     createdAt: timestampDaysAgo(3),
+  },
+  {
+    id: 'demo-prescription-2',
+    patientId: patientMaria.id,
+    professionalId: DEMO_PROFESSIONAL_UID,
+    professionalName: demoProfessional.name,
+    description: 'Trocar o curativo',
+    timesPerDay: 1,
+    times: ['09:00'],
+    endDate: localIsoDaysAhead(14),
+    createdAt: timestampDaysAgo(2),
   },
 ];
