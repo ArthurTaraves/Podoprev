@@ -147,7 +147,7 @@ export function PatientRegisterPage() {
 
           <div className="auth-links">
             <p>
-              Já tem conta? <Link to="/patient/login">Entrar</Link>
+              Já tem conta? <Link to="/login">Entrar</Link>
             </p>
           </div>
         </div>
@@ -212,7 +212,7 @@ export function PatientRegisterPage() {
               </button>
             </p>
             <p>
-              Já tem conta? <Link to="/patient/login">Entrar</Link>
+              Já tem conta? <Link to="/login">Entrar</Link>
             </p>
           </div>
         </div>
@@ -286,7 +286,7 @@ export function PatientRegisterPage() {
             </button>
           </p>
           <p>
-            Já tem conta? <Link to="/patient/login">Entrar</Link>
+            Já tem conta? <Link to="/login">Entrar</Link>
           </p>
         </div>
       </div>

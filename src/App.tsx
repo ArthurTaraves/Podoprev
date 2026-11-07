@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ProtectedPatientRoute } from './components/ProtectedPatientRoute';
 import { RoleRedirect } from './components/RoleRedirect';
@@ -39,7 +39,8 @@ function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
-        <Route path="/patient/login" element={<LoginPage />} />
+        {/* Rota antiga mantida só como redirecionamento, caso exista link externo para ela. */}
+        <Route path="/patient/login" element={<Navigate to="/login" replace />} />
         <Route path="/patient/register" element={<PatientRegisterPage />} />
 
         <Route

@@ -45,7 +45,7 @@ export function PatientProfilePage() {
 
   async function handleLogout() {
     await logout();
-    navigate('/patient/login');
+    navigate('/login');
   }
 
   if (loading) return <p>Carregando…</p>;

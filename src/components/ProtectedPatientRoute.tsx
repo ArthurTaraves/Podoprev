@@ -7,7 +7,7 @@ export function ProtectedPatientRoute({ children }: { children: ReactNode }) {
   const { user, role, loading } = useAuth();
 
   if (loading) return <p style={{ padding: 24 }}>Carregando…</p>;
-  if (!user || role !== 'patient') return <Navigate to="/patient/login" replace />;
+  if (!user || role !== 'patient') return <Navigate to="/login" replace />;
 
   return <PatientShell>{children}</PatientShell>;
 }

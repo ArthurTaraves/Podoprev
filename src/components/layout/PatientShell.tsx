@@ -17,7 +17,7 @@ export function PatientShell({ children }: { children: ReactNode }) {
 
   async function handleLogout() {
     await logout();
-    navigate('/patient/login');
+    navigate('/login');
   }
 
   return (
