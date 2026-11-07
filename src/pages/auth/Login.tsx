@@ -136,8 +136,11 @@ export function LoginPage() {
         {!isFirebaseConfigured && profile && (
           <>
             <div className="info-banner">
-              Firebase ainda não foi configurado neste ambiente (falta <code>.env.local</code>). Use o modo
-              demonstração abaixo para ver a interface com dados de exemplo.
+              {/* .info-banner é flex: sem este <p> o texto e o <code> virariam colunas separadas. */}
+              <p style={{ margin: 0, lineHeight: 1.5 }}>
+                Firebase ainda não foi configurado neste ambiente (falta <code>.env.local</code>). Use o modo
+                demonstração abaixo para ver a interface com dados de exemplo.
+              </p>
             </div>
             <button type="button" className="btn btn-secondary btn-block" style={{ marginBottom: 20 }} onClick={handleDemoLogin}>
               {profile === 'patient' ? 'Ver como paciente (demonstração)' : 'Entrar em modo demonstração'}
