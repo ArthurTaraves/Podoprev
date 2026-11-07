@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf';
-import type { Patient, PatientPhoto, Visit } from '../types';
+import type { Patient, PatientPhoto, Prescription, RiskLevel, Visit } from '../types';
 import { calculateAge } from '../domain/riskScore';
 import { RETURN_DESCRIPTION } from '../domain/returnSuggestion';
 import { formatDateBR, toIsoDate } from './dates';
@@ -14,6 +14,13 @@ const SIGN_LABELS: { key: 'ferida' | 'vermelhidao' | 'rachadura' | 'calo' | 'mic
   { key: 'unhaEncravada', label: 'Unha encravada' },
   { key: 'secrecao', label: 'Secreção' },
 ];
+
+// Mesmos rótulos do RiskBadge — o relatório fala a mesma língua da tela.
+const ATTENTION_LABELS: Record<RiskLevel, string> = {
+  baixo: 'Atenção baixa',
+  moderado: 'Atenção média',
+  alto: 'Atenção alta',
+};
 
 const MARGIN = 15;
 const PAGE_WIDTH = 210;
@@ -34,50 +41,18 @@ async function imageUrlToDataUrl(url: string): Promise<string | null> {
   }
 }
 
-export async function generateVisitReportPdf(patient: Patient, visit: Visit, photos: PatientPhoto[]): Promise<void> {
+function signsOf(visit: Visit): string[] {
+  return SIGN_LABELS.filter((s) => visit.examSigns[s.key]).map((s) => s.label);
+}
+
+function fileSafeName(name: string): string {
+  return name.replace(/\s+/g, '_');
+}
+
+// Blocos de texto comuns aos relatórios (A4, com quebra de página automática).
+function createPdfWriter() {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   let y = MARGIN;
-
-  function addTitle(text: string) {
-    doc.setFontSize(16);
-    doc.setTextColor(21, 101, 192);
-    doc.setFont('helvetica', 'bold');
-    doc.text(text, MARGIN, y);
-    y += 8;
-  }
-
-  function addSection(text: string) {
-    ensureSpace(10);
-    doc.setFontSize(12);
-    doc.setTextColor(20, 184, 166);
-    doc.setFont('helvetica', 'bold');
-    doc.text(text, MARGIN, y);
-    y += 6;
-    doc.setDrawColor(226, 232, 240);
-    doc.line(MARGIN, y - 3, PAGE_WIDTH - MARGIN, y - 3);
-  }
-
-  function addLine(label: string, value: string) {
-    ensureSpace(6);
-    doc.setFontSize(10);
-    doc.setTextColor(31, 41, 55);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`${label}:`, MARGIN, y);
-    doc.setFont('helvetica', 'normal');
-    const lines = doc.splitTextToSize(value || '—', CONTENT_WIDTH - 45);
-    doc.text(lines, MARGIN + 45, y);
-    y += 5 * Math.max(lines.length, 1);
-  }
-
-  function addParagraph(text: string) {
-    ensureSpace(10);
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(31, 41, 55);
-    const lines = doc.splitTextToSize(text || '—', CONTENT_WIDTH);
-    doc.text(lines, MARGIN, y);
-    y += 5 * lines.length + 2;
-  }
 
   function ensureSpace(needed: number) {
     if (y + needed > 280) {
@@ -86,104 +61,168 @@ export async function generateVisitReportPdf(patient: Patient, visit: Visit, pho
     }
   }
 
+  return {
+    doc,
+    get y() {
+      return y;
+    },
+    advance(mm: number) {
+      y += mm;
+    },
+    ensureSpace,
+    title(text: string) {
+      doc.setFontSize(16);
+      doc.setTextColor(21, 101, 192);
+      doc.setFont('helvetica', 'bold');
+      doc.text(text, MARGIN, y);
+      y += 8;
+    },
+    caption(text: string) {
+      doc.setFontSize(9);
+      doc.setTextColor(100, 116, 139);
+      doc.setFont('helvetica', 'normal');
+      doc.text(text, MARGIN, y);
+      y += 10;
+    },
+    section(text: string) {
+      ensureSpace(10);
+      doc.setFontSize(12);
+      doc.setTextColor(20, 184, 166);
+      doc.setFont('helvetica', 'bold');
+      doc.text(text, MARGIN, y);
+      y += 6;
+      doc.setDrawColor(226, 232, 240);
+      doc.line(MARGIN, y - 3, PAGE_WIDTH - MARGIN, y - 3);
+    },
+    subheading(text: string) {
+      ensureSpace(8);
+      doc.setFontSize(10.5);
+      doc.setTextColor(21, 101, 192);
+      doc.setFont('helvetica', 'bold');
+      doc.text(text, MARGIN, y);
+      y += 6;
+    },
+    line(label: string, value: string) {
+      ensureSpace(6);
+      doc.setFontSize(10);
+      doc.setTextColor(31, 41, 55);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${label}:`, MARGIN, y);
+      doc.setFont('helvetica', 'normal');
+      const lines = doc.splitTextToSize(value || '—', CONTENT_WIDTH - 45);
+      doc.text(lines, MARGIN + 45, y);
+      y += 5 * Math.max(lines.length, 1);
+    },
+    paragraph(text: string) {
+      ensureSpace(10);
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(31, 41, 55);
+      const lines = doc.splitTextToSize(text || '—', CONTENT_WIDTH);
+      doc.text(lines, MARGIN, y);
+      y += 5 * lines.length + 2;
+    },
+  };
+}
+
+export async function generateVisitReportPdf(patient: Patient, visit: Visit, photos: PatientPhoto[]): Promise<void> {
+  const w = createPdfWriter();
+  const { doc } = w;
+
   // Cabeçalho
-  addTitle('PodoPrev — Relatório de Atendimento Podológico');
-  doc.setFontSize(9);
-  doc.setTextColor(100, 116, 139);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Emitido em ${formatDateBR(new Date())}`, MARGIN, y);
-  y += 10;
+  w.title('PodoPrev — Relatório de Atendimento Podológico');
+  w.caption(`Emitido em ${formatDateBR(new Date())}`);
 
   // Dados do paciente
-  addSection('Dados do paciente');
-  addLine('Nome completo', patient.fullName);
-  addLine('Idade', `${calculateAge(patient.birthDate)} anos`);
-  addLine('CPF', patient.cpf);
-  addLine('Telefone', patient.phone);
-  addLine('Cidade/UF', patient.city ? `${patient.city}/${patient.state ?? ''}` : '—');
-  y += 3;
+  w.section('Dados do paciente');
+  w.line('Nome completo', patient.fullName);
+  w.line('Idade', `${calculateAge(patient.birthDate)} anos`);
+  w.line('CPF', patient.cpf);
+  w.line('Telefone', patient.phone);
+  w.line('Cidade/UF', patient.city ? `${patient.city}/${patient.state ?? ''}` : '—');
+  w.advance(3);
 
   // Dados do atendimento
-  addSection('Dados do atendimento');
-  addLine('Data do atendimento', formatDateBR(visit.date));
-  addLine('Profissional responsável', visit.professionalName);
-  addLine('Queixa principal', visit.anamnesis.mainComplaint);
-  y += 3;
+  w.section('Dados do atendimento');
+  w.line('Data do atendimento', formatDateBR(visit.date));
+  w.line('Profissional responsável', visit.professionalName);
+  w.line('Queixa principal', visit.anamnesis.mainComplaint);
+  w.advance(3);
 
   // Resumo da anamnese
-  addSection('Resumo da anamnese');
-  addLine('Dor nos pés', visit.anamnesis.hasPain === 'sim' ? `Sim (intensidade ${visit.anamnesis.painIntensity ?? '—'}/10)` : 'Não');
-  addLine('Possui diabetes', visit.anamnesis.diabetes.hasDiabetes === 'sim' ? 'Sim' : 'Não');
+  w.section('Resumo da anamnese');
+  w.line('Dor nos pés', visit.anamnesis.hasPain === 'sim' ? `Sim (intensidade ${visit.anamnesis.painIntensity ?? '—'}/10)` : 'Não');
+  w.line('Possui diabetes', visit.anamnesis.diabetes.hasDiabetes === 'sim' ? 'Sim' : 'Não');
   if (visit.anamnesis.diabetes.hasDiabetes === 'sim') {
-    addLine('Tipo de diabetes', visit.anamnesis.diabetes.type || 'Não informado');
-    addLine('Tempo de diagnóstico', visit.anamnesis.diabetes.diagnosisTime || '—');
+    w.line('Tipo de diabetes', visit.anamnesis.diabetes.type || 'Não informado');
+    w.line('Tempo de diagnóstico', visit.anamnesis.diabetes.diagnosisTime || '—');
   }
-  y += 3;
+  w.advance(3);
 
   // Fatores de risco
-  addSection('Fatores de risco identificados');
-  addParagraph(visit.risk.breakdown.map((b) => `• ${b.label} (+${b.points})`).join('\n') || 'Nenhum fator de risco relevante identificado.');
-  y += 2;
+  w.section('Fatores de risco identificados');
+  w.paragraph(visit.risk.breakdown.map((b) => `• ${b.label} (+${b.points})`).join('\n') || 'Nenhum fator de risco relevante identificado.');
+  w.advance(2);
 
   // Nível de atenção (classificação fixa, não editável)
-  addSection('Nível de atenção');
-  addLine('Pontuação total', `${visit.risk.score} pontos`);
-  addLine('Classificação', visit.risk.level.toUpperCase());
-  addParagraph(visit.risk.message);
-  y += 2;
+  w.section('Nível de atenção');
+  w.line('Pontuação total', `${visit.risk.score} pontos`);
+  w.line('Classificação', visit.risk.level.toUpperCase());
+  w.paragraph(visit.risk.message);
+  w.advance(2);
 
   // Sinais observados
-  addSection('Sinais observados no exame');
-  const signs = SIGN_LABELS.filter((s) => visit.examSigns[s.key]).map((s) => s.label);
-  addLine('Pé afetado', visit.examSigns.foot ? `Pé ${visit.examSigns.foot}` : 'Não informado');
-  addParagraph(signs.length > 0 ? signs.join(', ') : 'Nenhum sinal marcado no exame.');
-  if (visit.examSigns.observation) addParagraph(`Obs.: ${visit.examSigns.observation}`);
-  y += 2;
+  w.section('Sinais observados no exame');
+  const signs = signsOf(visit);
+  w.line('Pé afetado', visit.examSigns.foot ? `Pé ${visit.examSigns.foot}` : 'Não informado');
+  w.paragraph(signs.length > 0 ? signs.join(', ') : 'Nenhum sinal marcado no exame.');
+  if (visit.examSigns.observation) w.paragraph(`Obs.: ${visit.examSigns.observation}`);
+  w.advance(2);
 
   // Checklist de alerta
-  addSection('Checklist de sinais de alerta');
-  addLine('Sinal de alerta identificado', visit.hasCriticalAlert ? 'SIM — recomenda-se avaliação por profissional de saúde habilitado' : 'Não');
+  w.section('Checklist de sinais de alerta');
+  w.line('Sinal de alerta identificado', visit.hasCriticalAlert ? 'SIM — recomenda-se avaliação por profissional de saúde habilitado' : 'Não');
 
   // Conduta
-  addSection('Conduta / observações do podólogo');
-  addParagraph(visit.conduct || 'Não informado.');
+  w.section('Conduta / observações do podólogo');
+  w.paragraph(visit.conduct || 'Não informado.');
 
   // Orientações ao paciente
-  addSection('Orientações ao paciente');
+  w.section('Orientações ao paciente');
   if (visit.careInstructions.length === 0) {
-    addParagraph('Nenhuma orientação registrada.');
+    w.paragraph('Nenhuma orientação registrada.');
   } else {
     visit.careInstructions.forEach((instruction) => {
-      addLine(`${instruction.title} (${instruction.timesPerDay}x/dia)`, instruction.description);
+      w.line(`${instruction.title} (${instruction.timesPerDay}x/dia)`, instruction.description);
     });
   }
 
   // Retorno
-  addSection('Sugestão de retorno');
-  addLine('Data sugerida', formatDateBR(visit.returnDate));
-  addParagraph(RETURN_DESCRIPTION[visit.risk.level]);
+  w.section('Sugestão de retorno');
+  w.line('Data sugerida', formatDateBR(visit.returnDate));
+  w.paragraph(RETURN_DESCRIPTION[visit.risk.level]);
 
   // Fotos
   if (photos.length > 0) {
-    addSection('Fotos autorizadas');
+    w.section('Fotos autorizadas');
     for (const photo of photos) {
-      ensureSpace(70);
+      w.ensureSpace(70);
       const dataUrl = await imageUrlToDataUrl(photo.url);
       if (dataUrl) {
         try {
-          doc.addImage(dataUrl, 'JPEG', MARGIN, y, 60, 60);
+          doc.addImage(dataUrl, 'JPEG', MARGIN, w.y, 60, 60);
         } catch {
           // formato não suportado — ignora silenciosamente
         }
       }
       doc.setFontSize(9);
-      doc.text(photo.caption || '', MARGIN, y + 64);
-      y += 72;
+      doc.text(photo.caption || '', MARGIN, w.y + 64);
+      w.advance(72);
     }
   }
 
   // Aviso legal
-  ensureSpace(20);
+  w.ensureSpace(20);
   doc.setFontSize(8);
   doc.setTextColor(100, 116, 139);
   doc.setFont('helvetica', 'italic');
@@ -193,5 +232,98 @@ export async function generateVisitReportPdf(patient: Patient, visit: Visit, pho
     'e observados — a decisão clínica é sempre do profissional responsável.';
   doc.text(doc.splitTextToSize(disclaimer, CONTENT_WIDTH), MARGIN, 285);
 
-  doc.save(`relatorio-${patient.fullName.replace(/\s+/g, '_')}-${toIsoDate(visit.date)}.pdf`);
+  doc.save(`relatorio-${fileSafeName(patient.fullName)}-${toIsoDate(visit.date)}.pdf`);
+}
+
+// Relatório geral do paciente (botão "Gerar relatório" do prontuário): dados
+// cadastrais, nível de atenção atual, prescrições ativas e todos os atendimentos
+// visíveis para o profissional (inclui os compartilhados por um anterior).
+export function generatePatientReportPdf(patient: Patient, visits: Visit[], activePrescriptions: Prescription[]): void {
+  const w = createPdfWriter();
+  const { doc } = w;
+  const generatedAt = formatDateBR(new Date());
+  const sortedVisits = [...visits].sort((a, b) => b.date - a.date);
+  const latest = sortedVisits[0] ?? null;
+
+  w.title('PodoPrev — Relatório do Paciente');
+  w.caption(`Gerado em ${generatedAt}`);
+
+  // 1. Dados do paciente
+  w.section('Dados do paciente');
+  w.line('Nome completo', patient.fullName);
+  w.line('Nascimento', `${formatDateBR(patient.birthDate)} (${calculateAge(patient.birthDate)} anos)`);
+  w.line('CPF', patient.cpf);
+  w.line('Telefone', patient.phone);
+  const cityState = patient.city ? `${patient.city}/${patient.state ?? ''}` : '';
+  w.line('Endereço', [patient.address, cityState].filter(Boolean).join(' — '));
+  w.advance(3);
+
+  // 2. Nível de atenção atual
+  w.section('Nível de atenção atual');
+  if (latest) {
+    w.line('Classificação', `${ATTENTION_LABELS[latest.risk.level]} (${latest.risk.score} pontos)`);
+    w.line('Último atendimento', formatDateBR(latest.date));
+  } else {
+    w.paragraph('Ainda sem avaliação registrada.');
+  }
+  w.advance(3);
+
+  // 3. Prescrições ativas
+  w.section('Prescrições ativas');
+  if (activePrescriptions.length === 0) {
+    w.paragraph('Nenhuma prescrição ativa no momento.');
+  } else {
+    activePrescriptions.forEach((prescription) => {
+      w.paragraph(`• ${prescription.description}`);
+      w.line('Horários', prescription.times.join(' · '));
+      w.line('Até', prescription.endDate ? formatDateBR(prescription.endDate) : 'Sem data de fim');
+      w.advance(2);
+    });
+  }
+  w.advance(1);
+
+  // 4. Histórico de atendimentos
+  w.section(`Histórico de atendimentos (${sortedVisits.length})`);
+  if (sortedVisits.length === 0) {
+    w.paragraph('Nenhum atendimento registrado.');
+  }
+  sortedVisits.forEach((visit, index) => {
+    // Bloco inteiro do atendimento na mesma página (e longe do rodapé, em y=283).
+    w.ensureSpace(55);
+    w.subheading(`${formatDateBR(visit.date)} — ${ATTENTION_LABELS[visit.risk.level]} (${visit.risk.score} pontos)`);
+    w.line('Profissional', visit.professionalName);
+    w.line('Queixa principal', visit.anamnesis.mainComplaint);
+    const signs = signsOf(visit);
+    const foot = visit.examSigns.foot ? ` (pé ${visit.examSigns.foot})` : '';
+    w.line('Sinais observados', signs.length > 0 ? `${signs.join(', ')}${foot}` : 'Nenhum sinal marcado');
+    if (visit.examSigns.observation) w.line('Observação', visit.examSigns.observation);
+    w.line(
+      'Orientações',
+      visit.careInstructions.length > 0
+        ? visit.careInstructions.map((instruction) => `${instruction.title} (${instruction.timesPerDay}x/dia)`).join('; ')
+        : 'Nenhuma orientação registrada',
+    );
+    w.line('Retorno sugerido', formatDateBR(visit.returnDate));
+    if (index < sortedVisits.length - 1) w.advance(3);
+  });
+
+  // 5. Rodapé em todas as páginas
+  const pageCount = doc.getNumberOfPages();
+  for (let page = 1; page <= pageCount; page++) {
+    doc.setPage(page);
+    doc.setDrawColor(226, 232, 240);
+    doc.line(MARGIN, 283, PAGE_WIDTH - MARGIN, 283);
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    doc.setFont('helvetica', 'italic');
+    doc.text(
+      `Gerado em ${generatedAt}. Documento gerado pelo PodoPrev — ferramenta de apoio, não substitui diagnóstico clínico.`,
+      MARGIN,
+      288,
+    );
+    doc.setFont('helvetica', 'normal');
+    doc.text(`${page}/${pageCount}`, PAGE_WIDTH - MARGIN, 288, { align: 'right' });
+  }
+
+  doc.save(`relatorio-paciente-${fileSafeName(patient.fullName)}-${toIsoDate(new Date())}.pdf`);
 }
