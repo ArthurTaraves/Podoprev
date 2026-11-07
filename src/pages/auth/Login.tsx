@@ -102,6 +102,31 @@ export function LoginPage() {
           </div>
         </div>
 
+        {!isFirebaseConfigured && !profile && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+            <button
+              type="button"
+              className="btn btn-secondary btn-block"
+              onClick={() => {
+                loginDemo();
+                navigate('/');
+              }}
+            >
+              Entrar como podólogo (demonstração)
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary btn-block"
+              onClick={() => {
+                loginDemoPatient();
+                navigate('/');
+              }}
+            >
+              Entrar como paciente (demonstração)
+            </button>
+          </div>
+        )}
+
         {!isFirebaseConfigured && profile && (
           <>
             <div className="info-banner">
