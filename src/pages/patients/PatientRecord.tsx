@@ -162,7 +162,7 @@ export function PatientRecordPage() {
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button className="btn btn-primary" style={{ flex: '1 1 100%' }} onClick={() => navigate(`/app/patients/${id}/visits/new`)}>
-            + {visits.length === 0 ? 'Realizar avaliação inicial' : 'Registrar retorno'}
+            + {visits.length === 0 ? 'Realizar avaliação inicial' : 'Nova consulta'}
           </button>
           <button className="btn btn-outline btn-sm" style={{ flex: 1 }} onClick={() => navigate(`/app/patients/${id}/edit`)}>
             Editar dados

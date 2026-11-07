@@ -53,7 +53,7 @@ function Grupo1Card({
             Ver prontuário
           </button>
           <button className="btn btn-outline btn-sm" onClick={onRegister}>
-            Registrar retorno
+            Nova consulta
           </button>
         </div>
       </div>
