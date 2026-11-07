@@ -235,7 +235,7 @@ export function PatientSearchPage() {
         ) : switchStep === null ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <button type="button" className="btn btn-primary" disabled={switching} onClick={() => handleChooseProfessional(selected)}>
-              {switching ? 'Carregando…' : 'Escolher este profissional'}
+              {switching ? 'Carregando…' : patientAccount?.professionalId ? 'Trocar para este profissional' : 'Escolher este profissional'}
             </button>
             <button type="button" className="btn btn-outline" onClick={() => setShowAvailabilityDetail((v) => !v)}>
               {showAvailabilityDetail ? 'Ocultar disponibilidade' : 'Ver disponibilidade'}

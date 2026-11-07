@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { Disclaimer } from '../../components/Disclaimer';
 import { NoProfessionalCard } from '../../components/NoProfessionalCard';
 import { getPatient } from '../../firebase/patients';
 import { listVisitsByPatient } from '../../firebase/visits';
@@ -8,7 +9,8 @@ import { getProfessionalProfile } from '../../firebase/professionalProfiles';
 import { listSwitchHistoryByPatient } from '../../firebase/switchHistory';
 import { listPrescriptionsByPatient } from '../../firebase/prescriptions';
 import { isPrescriptionActive } from '../../domain/prescriptions';
-import type { Patient, Prescription, ProfessionalProfile, Visit } from '../../types';
+import { listAppointmentsByPatient } from '../../firebase/appointments';
+import type { Appointment, Patient, Prescription, ProfessionalProfile, Visit } from '../../types';
 import { RiskBadge } from '../../components/ui/RiskBadge';
 import { daysBetween, formatDateBR, todayIso } from '../../lib/dates';
 
@@ -51,6 +53,7 @@ export function PatientHomePage() {
   const [professionalProfile, setProfessionalProfile] = useState<ProfessionalProfile | null>(null);
   const [recentlySwitched, setRecentlySwitched] = useState(false);
   const [activePrescriptions, setActivePrescriptions] = useState<Prescription[]>([]);
+  const [nextAppointment, setNextAppointment] = useState<Appointment | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -63,13 +66,18 @@ export function PatientHomePage() {
       getProfessionalProfile(patientAccount.professionalId),
       listSwitchHistoryByPatient(patientAccount.patientId),
       listPrescriptionsByPatient(patientAccount.patientId, patientAccount.professionalId),
-    ]).then(([p, visits, profile, switches, prescriptions]) => {
+      listAppointmentsByPatient(patientAccount.patientId, patientAccount.professionalId),
+    ]).then(([p, visits, profile, switches, prescriptions, appointments]) => {
       setPatient(p);
       setLatestVisit(visits[0] ?? null);
       setProfessionalProfile(profile);
       setRecentlySwitched(switches.length > 0);
       const today = todayIso();
       setActivePrescriptions(prescriptions.filter((prescription) => isPrescriptionActive(prescription, today)));
+      const upcoming = appointments
+        .filter((appointment) => appointment.status === 'confirmado' && appointment.date >= today)
+        .sort((a, b) => `${a.date} ${a.startTime}`.localeCompare(`${b.date} ${b.startTime}`));
+      setNextAppointment(upcoming[0] ?? null);
       setLoading(false);
     });
   }, [patientAccount]);
@@ -87,25 +95,41 @@ export function PatientHomePage() {
   if (loading) return <p>Carregando…</p>;
   if (!patient) return <p>Não encontramos seus dados. Fale com seu podólogo.</p>;
 
-  const days = latestVisit ? daysBetween(todayIso(), latestVisit.returnDate) : null;
+  const referenceDate = nextAppointment?.date ?? latestVisit?.returnDate ?? null;
+  const days = referenceDate ? daysBetween(todayIso(), referenceDate) : null;
   const urgency = days !== null ? returnUrgency(days) : null;
 
   return (
     <div>
       <h1 style={{ fontSize: 20 }}>Início</h1>
 
-      {/* Bloco A — Próximo retorno */}
+      {/* Bloco A — Próxima consulta agendada ou, sem ela, o retorno sugerido.
+          Uma data só no card: com as duas, o paciente via datas diferentes sem
+          entender que uma é sugestão do podólogo e a outra é o horário marcado. */}
       <div className={`card return-card ${urgency?.urgencyClass ?? ''}`} style={{ padding: 20, marginBottom: 24 }}>
-        <strong>🗓️ Próximo retorno</strong>
-        {latestVisit ? (
+        {nextAppointment ? (
           <>
+            <strong>🗓️ Próxima consulta</strong>
+            <p style={{ marginTop: 8, marginBottom: 8, fontSize: 22, fontWeight: 600, color: '#1565c0' }}>
+              {formatDateBR(nextAppointment.date)} às {nextAppointment.startTime}
+            </p>
+            {urgency && <span className={`badge ${urgency.badgeClass}`}>{urgency.text}</span>}
+          </>
+        ) : latestVisit ? (
+          <>
+            <strong>🗓️ Retorno sugerido</strong>
             <p style={{ marginTop: 8, marginBottom: 8, fontSize: 22, fontWeight: 600, color: '#1565c0' }}>
               {formatDateBR(latestVisit.returnDate)}
             </p>
             {urgency && <span className={`badge ${urgency.badgeClass}`}>{urgency.text}</span>}
+            <p className="hint" style={{ marginTop: 8, marginBottom: 0 }}>
+              Data sugerida pelo seu podólogo. Agende seu horário na aba{' '}
+              <Link to="/patient/history">Histórico</Link>.
+            </p>
           </>
         ) : (
           <>
+            <strong>🗓️ Próximo retorno</strong>
             <p style={{ marginTop: 4, marginBottom: 4 }}>Nenhum retorno agendado ainda</p>
             <p className="hint" style={{ margin: 0 }}>
               {recentlySwitched
@@ -256,9 +280,7 @@ export function PatientHomePage() {
         ))}
       </div>
 
-      <p className="disclaimer">
-        Esta é uma ferramenta de apoio à triagem podológica. Não substitui diagnóstico ou prescrição médica.
-      </p>
+      <Disclaimer />
     </div>
   );
 }

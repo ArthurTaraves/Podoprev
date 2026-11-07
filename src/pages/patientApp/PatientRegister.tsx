@@ -6,16 +6,6 @@ import { formatCpf, isValidCpf } from '../../lib/cpf';
 import { formatPhone } from '../../lib/phone';
 
 // Botão com aparência de link, para o "← Voltar" entre as telas de escolha.
-const linkButtonStyle = {
-  background: 'none',
-  border: 'none',
-  padding: 0,
-  font: 'inherit',
-  color: 'var(--color-primary)',
-  textDecoration: 'underline',
-  cursor: 'pointer',
-};
-
 export function PatientRegisterPage() {
   const { registerPatient, registerPatientWithoutInvite } = useAuth();
   const navigate = useNavigate();
@@ -46,6 +36,13 @@ export function PatientRegisterPage() {
   function goToMode(next: 'choose' | 'invite' | 'self') {
     setError('');
     setMode(next);
+  }
+
+  // Quem chegou pelos links do login (?mode=...) já escolheu lá — voltar para a
+  // tela de escolha repetiria a mesma pergunta. Sem ?mode=, volta para a escolha.
+  function handleBack() {
+    if (initialMode === 'choose') goToMode('choose');
+    else navigate('/login');
   }
 
   async function checkInvite() {
@@ -207,7 +204,7 @@ export function PatientRegisterPage() {
 
           <div className="auth-links">
             <p>
-              <button type="button" style={linkButtonStyle} onClick={() => goToMode('choose')}>
+              <button type="button" className="btn-link" onClick={handleBack}>
                 ← Voltar
               </button>
             </p>
@@ -281,7 +278,7 @@ export function PatientRegisterPage() {
 
         <div className="auth-links">
           <p>
-            <button type="button" style={linkButtonStyle} onClick={() => goToMode('choose')}>
+            <button type="button" className="btn-link" onClick={handleBack}>
               ← Voltar
             </button>
           </p>

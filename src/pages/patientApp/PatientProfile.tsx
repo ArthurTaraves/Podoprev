@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { Disclaimer } from '../../components/Disclaimer';
+import { mergeById } from '../../lib/mergeById';
 import { getPatient } from '../../firebase/patients';
 import { listConsentsByPatient } from '../../firebase/consents';
 import { listAllProfessionalIdsForPatient } from '../../firebase/switchHistory';
@@ -10,16 +11,8 @@ import { calculateAge } from '../../domain/riskScore';
 import { formatPhone } from '../../lib/phone';
 import { formatDateBR } from '../../lib/dates';
 
-// Mesmo mecanismo de mesclagem por id usado em PatientHistory.tsx.
-function mergeById<T extends { id: string }>(items: T[]): T[] {
-  const map = new Map<string, T>();
-  for (const item of items) map.set(item.id, item);
-  return Array.from(map.values());
-}
-
 export function PatientProfilePage() {
-  const { patientAccount, logout } = useAuth();
-  const navigate = useNavigate();
+  const { patientAccount } = useAuth();
   const [patient, setPatient] = useState<Patient | null>(null);
   const [consents, setConsents] = useState<Consent[]>([]);
   const [professionalNames, setProfessionalNames] = useState<Record<string, string>>({});
@@ -43,11 +36,6 @@ export function PatientProfilePage() {
       setLoading(false);
     })();
   }, [patientAccount]);
-
-  async function handleLogout() {
-    await logout();
-    navigate('/login');
-  }
 
   if (loading) return <p>Carregando…</p>;
   if (!patient) return <p>Não encontramos seus dados. Fale com seu podólogo.</p>;
@@ -114,13 +102,7 @@ export function PatientProfilePage() {
         </p>
       </div>
 
-      <button className="btn btn-outline btn-block" onClick={handleLogout}>
-        Sair da conta
-      </button>
-
-      <p className="disclaimer">
-        Esta é uma ferramenta de apoio à triagem podológica. Não substitui diagnóstico ou prescrição médica.
-      </p>
+      <Disclaimer />
     </div>
   );
 }
