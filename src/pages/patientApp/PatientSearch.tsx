@@ -5,7 +5,8 @@ import { getProfessionalProfile, listPublicProfessionalProfiles } from '../../fi
 import { getAvailability } from '../../firebase/availability';
 import { getPreAnamnesisForPatient } from '../../firebase/preAnamnesis';
 import { switchProfessional } from '../../firebase/professionalSwitch';
-import { getPatient } from '../../firebase/patients';
+import { getPatient, updatePatient } from '../../firebase/patients';
+import { savePatientAccount } from '../../firebase/patientAccounts';
 import { hasActiveAvailability, summarizeAvailability } from '../../domain/availability';
 import { SPECIALTY_OPTIONS, WEEKDAY_LABELS, WEEKDAYS } from '../../domain/factories';
 import type { Availability, ProfessionalProfile, Specialty } from '../../types';
@@ -102,7 +103,27 @@ export function PatientSearchPage() {
   // um professionalId) — "escolher" um profissional diferente é sempre uma troca.
   // Escolher o profissional que já é o atual não abre o fluxo (não faz sentido).
   async function handleChooseProfessional(profile: ProfessionalProfile) {
-    if (!patientAccount || profile.professionalId === patientAccount.professionalId) return;
+    if (!patientAccount) return;
+
+    // Primeiro vínculo: paciente cadastrado sem convite escolhe o primeiro
+    // profissional (sem troca, sem termo de portabilidade — não há histórico anterior).
+    if (!patientAccount.professionalId) {
+      setSwitching(true);
+      try {
+        await updatePatient(patientAccount.patientId, { professionalId: profile.professionalId });
+        await savePatientAccount({ ...patientAccount, professionalId: profile.professionalId });
+        await refreshPatientAccount();
+        setSelected(null);
+      } catch (err) {
+        console.error('Erro ao vincular profissional:', err);
+      } finally {
+        setSwitching(false);
+      }
+      return;
+    }
+
+    // Troca de profissional: fluxo existente.
+    if (profile.professionalId === patientAccount.professionalId) return;
     setSwitching(true);
     const [currentProfile, pending] = await Promise.all([
       getProfessionalProfile(patientAccount.professionalId),
