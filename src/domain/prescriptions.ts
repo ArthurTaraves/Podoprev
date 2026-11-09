@@ -5,11 +5,33 @@ import { addDaysIso, daysBetween, toIsoDate } from '../lib/dates';
 // "de agora": quem chama passa o dia de referência (ISO yyyy-mm-dd, horário local,
 // ver todayIso() em src/lib/dates.ts).
 
+export type PrescriptionStatus = 'ativa' | 'agendada' | 'encerrada';
+
+// Primeiro dia em que a prescrição valeu: início definido ou dia da criação.
+export function prescriptionStartDate(prescription: Prescription): string {
+  return prescription.startDate ?? toIsoDate(prescription.createdAt);
+}
+
+// Último dia em que a prescrição valeu (ou vale): o que vier primeiro entre a data
+// de fim e o dia da remoção pelo profissional; null = sem fim definido.
+export function prescriptionEffectiveEndDate(prescription: Prescription): string | null {
+  const removed = prescription.removedAt ? toIsoDate(prescription.removedAt) : null;
+  if (removed && prescription.endDate) return removed < prescription.endDate ? removed : prescription.endDate;
+  return removed ?? prescription.endDate ?? null;
+}
+
 // Strings ISO yyyy-mm-dd comparam corretamente em ordem lexicográfica.
+// Removida pelo profissional = encerrada (soft delete: o documento continua
+// existindo para o histórico do paciente).
+export function prescriptionStatus(prescription: Prescription, todayIso: string): PrescriptionStatus {
+  if (prescription.removedAt) return 'encerrada';
+  if (prescription.endDate && todayIso > prescription.endDate) return 'encerrada';
+  if (prescription.startDate && todayIso < prescription.startDate) return 'agendada';
+  return 'ativa';
+}
+
 export function isPrescriptionActive(prescription: Prescription, todayIso: string): boolean {
-  if (prescription.startDate && todayIso < prescription.startDate) return false;
-  if (prescription.endDate && todayIso > prescription.endDate) return false;
-  return true;
+  return prescriptionStatus(prescription, todayIso) === 'ativa';
 }
 
 // Dias até a data de término (0 = hoje é o último dia); null quando não há término.
@@ -29,9 +51,21 @@ export interface AdherenceSummary {
 // baixa adesão só por ser recente.
 export function adherenceSummary(prescription: Prescription, doneDays: Set<string>, todayIso: string, windowDays: number): AdherenceSummary {
   const windowStart = addDaysIso(todayIso, -(windowDays - 1));
-  const activeFrom = prescription.startDate ?? toIsoDate(prescription.createdAt);
-  const from = activeFrom > windowStart ? activeFrom : windowStart;
-  const to = prescription.endDate && prescription.endDate < todayIso ? prescription.endDate : todayIso;
+  return countDoneDays(prescription, doneDays, windowStart, todayIso);
+}
+
+// Adesão no período inteiro em que a prescrição valeu — usada no histórico de
+// prescrições encerradas ("12/14 dias feitos").
+export function totalAdherence(prescription: Prescription, doneDays: Set<string>, todayIso: string): AdherenceSummary {
+  return countDoneDays(prescription, doneDays, prescriptionStartDate(prescription), todayIso);
+}
+
+// Dias de [periodStart, todayIso] em que a prescrição valia, e quantos foram feitos.
+function countDoneDays(prescription: Prescription, doneDays: Set<string>, periodStart: string, todayIso: string): AdherenceSummary {
+  const activeFrom = prescriptionStartDate(prescription);
+  const from = activeFrom > periodStart ? activeFrom : periodStart;
+  const end = prescriptionEffectiveEndDate(prescription);
+  const to = end && end < todayIso ? end : todayIso;
   if (from > to) return { done: 0, total: 0 };
   let done = 0;
   for (let day = from; day <= to; day = addDaysIso(day, 1)) {

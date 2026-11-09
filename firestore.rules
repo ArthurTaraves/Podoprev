@@ -82,24 +82,29 @@ service cloud.firestore {
       allow read: if isOwner(resource.data.professionalId) || isLinkedPatient(resource.data.patientId);
       allow create: if isOwner(request.resource.data.professionalId)
         && get(/databases/$(database)/documents/patients/$(request.resource.data.patientId)).data.professionalId == request.auth.uid;
-      allow delete: if isOwner(resource.data.professionalId);
+      // "Remover" é soft delete: o dono só pode gravar removedAt, uma vez. Não há
+      // delete — a prescrição continua no histórico "Cuidados anteriores" do paciente.
+      allow update: if isOwner(resource.data.professionalId)
+        && resource.data.get('removedAt', null) == null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['removedAt'])
+        && request.resource.data.removedAt is number;
 
       // Adesão: um documento por dia ({yyyy-mm-dd}) em que o paciente marcou "feito".
       // A permissão vem sempre do documento pai (get), nunca de campos do próprio
       // dia — então listar a subcoleção não tem problema de provabilidade.
-      // Paciente vinculado: lê (pra saber se hoje já marcou) e só CRIA — sem update/
-      // delete, um dia marcado não é desmarcado. Profissional dono: lê (estatística
-      // de adesão) e apaga (só junto com a remoção da própria prescrição).
+      // Paciente vinculado: lê (pra saber se hoje já marcou) e só CRIA, e só em
+      // prescrição não removida — sem update/delete, um dia marcado não é desmarcado.
+      // Profissional dono: só lê (estatística de adesão).
       match /adherence/{day} {
         function parentPrescription() {
           return get(/databases/$(database)/documents/prescriptions/$(prescriptionId)).data;
         }
         allow read: if isOwner(parentPrescription().professionalId) || isLinkedPatient(parentPrescription().patientId);
         allow create: if isLinkedPatient(parentPrescription().patientId)
+          && parentPrescription().get('removedAt', null) == null
           && day.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
           && request.resource.data.keys().hasOnly(['done', 'timestamp'])
           && request.resource.data.done == true;
-        allow delete: if isOwner(parentPrescription().professionalId);
       }
     }
 

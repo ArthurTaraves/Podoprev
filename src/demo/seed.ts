@@ -784,6 +784,20 @@ export const demoPrescriptions: Prescription[] = [
     endDate: addDaysIso(todayIso(), 14),
     createdAt: timestampDaysAgo(2),
   },
+  // Encerrada (20 dias, terminou há 5) — aparece em "Cuidados anteriores" da Maria
+  // e na seção "Encerradas" do modal do profissional.
+  {
+    id: 'demo-prescription-3',
+    patientId: patientMaria.id,
+    professionalId: DEMO_PROFESSIONAL_UID,
+    professionalName: demoProfessional.name,
+    description: 'Aplicar pomada nos calcanhares',
+    timesPerDay: 1,
+    times: ['21:00'],
+    startDate: addDaysIso(todayIso(), -24),
+    endDate: addDaysIso(todayIso(), -5),
+    createdAt: timestampDaysAgo(24),
+  },
 ];
 
 // Adesão (dias marcados como "feito" pela Maria) — hoje fica sem marcar, para dar
@@ -796,6 +810,8 @@ function daysAgoIso(daysList: number[]): string[] {
 export const demoPrescriptionAdherence: Record<string, string[]> = {
   'demo-prescription-1': daysAgoIso(Array.from({ length: 25 }, (_, i) => i + 1).filter((d) => ![4, 9, 15, 20].includes(d))),
   'demo-prescription-2': daysAgoIso([1, 2]),
+  // Pomada: 18 dos 20 dias marcados (faltou em 2).
+  'demo-prescription-3': daysAgoIso(Array.from({ length: 20 }, (_, i) => i + 5).filter((d) => ![12, 19].includes(d))),
 };
 
 // Notificação não lida para Maria — demonstra o contador vermelho na aba

@@ -1,8 +1,8 @@
-import { collection, doc, getDoc, getDocs, query, setDoc, where, writeBatch } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, setDoc, updateDoc, where, writeBatch } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from './config';
 import {
   demoCreatePrescription,
-  demoDeletePrescription,
+  demoRemovePrescription,
   demoIsPrescriptionDoneOn,
   demoListAdherenceDays,
   demoListPrescriptionsByPatient,
@@ -49,15 +49,11 @@ export async function listPrescriptionsByPatient(patientId: string, professional
     .sort((a, b) => b.createdAt - a.createdAt);
 }
 
-// Remove também as marcações de adesão — o Firestore não apaga subcoleções
-// junto com o documento pai, elas ficariam órfãs.
-export async function deletePrescription(id: string): Promise<void> {
-  if (!isFirebaseConfigured) return demoDeletePrescription(id);
-  const adherence = await getDocs(adherenceRef(id));
-  const batch = writeBatch(db);
-  adherence.docs.forEach((d) => batch.delete(d.ref));
-  batch.delete(doc(db, 'prescriptions', id));
-  await batch.commit();
+// "Remover" do profissional é soft delete: grava removedAt e mantém o documento
+// (e as marcações de adesão) para o histórico "Cuidados anteriores" do paciente.
+export async function removePrescription(id: string): Promise<void> {
+  if (!isFirebaseConfigured) return demoRemovePrescription(id);
+  await updateDoc(doc(db, 'prescriptions', id), { removedAt: Date.now() });
 }
 
 // --- Adesão: prescriptions/{id}/adherence/{yyyy-mm-dd} = { done: true, timestamp } ---

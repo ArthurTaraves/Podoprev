@@ -472,9 +472,9 @@ export async function demoListPrescriptionsByPatient(patientId: string, professi
     .sort((a, b) => b.createdAt - a.createdAt);
 }
 
-export async function demoDeletePrescription(id: string): Promise<void> {
-  prescriptions = prescriptions.filter((p) => p.id !== id);
-  prescriptionAdherence.delete(id);
+// Soft delete, igual ao Firestore: a prescrição e a adesão continuam no histórico.
+export async function demoRemovePrescription(id: string): Promise<void> {
+  prescriptions = prescriptions.map((p) => (p.id === id ? { ...p, removedAt: Date.now() } : p));
 }
 
 // --- adesão às prescrições (espelho de prescriptions/{id}/adherence/{dia}) ---

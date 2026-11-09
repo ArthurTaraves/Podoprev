@@ -246,6 +246,7 @@ export interface Prescription {
   startDate?: string; // ISO yyyy-mm-dd; ausente = vale desde a criação
   endDate?: string; // ISO yyyy-mm-dd; ausente = sem data de término
   createdAt: number;
+  removedAt?: number; // "Remover" do profissional = soft delete (fica no histórico do paciente como encerrada)
 }
 
 // --- Notificações para o paciente (ex.: "novo cuidado prescrito") ---
