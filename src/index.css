@@ -481,6 +481,42 @@ button {
   background: #f8fafc;
 }
 
+/* Filtros rápidos (chips selecionáveis) — ex.: lista de pacientes. */
+.filter-group {
+  margin-bottom: 10px;
+}
+
+.filter-group-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  margin-bottom: 6px;
+}
+
+.filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.filter-chip {
+  border: 1.5px solid var(--color-border);
+  background: white;
+  color: var(--color-text);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.filter-chip.selected {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: white;
+  font-weight: 600;
+}
+
 .search-bar {
   display: flex;
   gap: 10px;

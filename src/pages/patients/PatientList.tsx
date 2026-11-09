@@ -9,6 +9,17 @@ import { calculateAge } from '../../domain/riskScore';
 import { computeActionStatus, sortByPriority, type PatientActionStatus } from '../../domain/actionQueue';
 import { describeAttentionEvolution } from '../../domain/evolution';
 import { RiskBadge } from '../../components/ui/RiskBadge';
+import { listConfirmedAppointmentsByProfessional } from '../../firebase/appointments';
+import {
+  ATTENTION_FILTER_OPTIONS,
+  SITUATION_FILTER_OPTIONS,
+  matchesAttention,
+  matchesSearch,
+  matchesSituation,
+  type AttentionFilter,
+  type SituationFilter,
+} from '../../domain/patientFilters';
+import { todayIso } from '../../lib/dates';
 
 // Indicador de descobribilidade (Onda 5): sinaliza, direto na lista, quais
 // pacientes têm um vínculo vindo de troca — com ou sem compartilhamento
@@ -23,13 +34,23 @@ export function PatientListPage() {
   const [pendingPreAnamnesisIds, setPendingPreAnamnesisIds] = useState<Set<string>>(new Set());
   const [switchBadges, setSwitchBadges] = useState<Record<string, SwitchBadge>>({});
   const [positiveEvolutionIds, setPositiveEvolutionIds] = useState<Set<string>>(new Set());
+  const [upcomingAppointmentIds, setUpcomingAppointmentIds] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
+  const [attentionFilter, setAttentionFilter] = useState<AttentionFilter>('todos');
+  const [situationFilter, setSituationFilter] = useState<SituationFilter>('todos');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user) return;
-    Promise.all([listPatients(user.uid), listVisitsByProfessional(user.uid), listPendingPreAnamnesisByProfessional(user.uid)])
-      .then(async ([patients, visits, pendingPreAnamnesis]) => {
+    Promise.all([
+      listPatients(user.uid),
+      listVisitsByProfessional(user.uid),
+      listPendingPreAnamnesisByProfessional(user.uid),
+      listConfirmedAppointmentsByProfessional(user.uid),
+    ])
+      .then(async ([patients, visits, pendingPreAnamnesis, appointments]) => {
+        const today = todayIso();
+        setUpcomingAppointmentIds(new Set(appointments.filter((a) => a.date >= today).map((a) => a.patientId)));
         const latestByPatient = latestVisitByPatient(visits);
         const previousByPatient = previousVisitByPatient(visits);
         setStatuses(sortByPriority(patients.map((p) => computeActionStatus(p, latestByPatient.get(p.id) ?? null))));
@@ -56,9 +77,20 @@ export function PatientListPage() {
       .finally(() => setLoading(false));
   }, [user]);
 
+  const today = todayIso();
   const filtered = statuses.filter(
-    (s) => s.patient.fullName.toLowerCase().includes(search.toLowerCase()) || s.patient.cpf.includes(search),
+    (s) =>
+      matchesSearch(s, search) &&
+      matchesAttention(s, attentionFilter) &&
+      matchesSituation(s, situationFilter, upcomingAppointmentIds, today),
   );
+  const hasActiveFilter = search.trim() !== '' || attentionFilter !== 'todos' || situationFilter !== 'todos';
+
+  function clearFilters() {
+    setSearch('');
+    setAttentionFilter('todos');
+    setSituationFilter('todos');
+  }
 
   return (
     <div>
@@ -72,16 +104,62 @@ export function PatientListPage() {
         </button>
       </div>
 
+      <div className="filter-group">
+        <div className="filter-group-label">Nível de atenção</div>
+        <div className="filter-chips" role="group" aria-label="Filtrar por nível de atenção">
+          {ATTENTION_FILTER_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className={`filter-chip ${attentionFilter === option.value ? 'selected' : ''}`}
+              aria-pressed={attentionFilter === option.value}
+              onClick={() => setAttentionFilter(option.value)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="filter-group" style={{ marginBottom: 14 }}>
+        <div className="filter-group-label">Situação</div>
+        <div className="filter-chips" role="group" aria-label="Filtrar por situação">
+          {SITUATION_FILTER_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className={`filter-chip ${situationFilter === option.value ? 'selected' : ''}`}
+              aria-pressed={situationFilter === option.value}
+              onClick={() => setSituationFilter(option.value)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="search-bar">
         <input placeholder="Buscar por nome ou CPF…" value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
+
+      {!loading && statuses.length > 0 && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 8 }}>
+          <span>
+            {filtered.length} de {statuses.length} pacientes
+          </span>
+          {hasActiveFilter && (
+            <button type="button" className="btn-link" onClick={clearFilters}>
+              Limpar filtros
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="card">
         {loading ? (
           <p>Carregando…</p>
         ) : filtered.length === 0 ? (
           <div className="empty-state">
-            {statuses.length === 0 ? 'Nenhum paciente cadastrado ainda.' : 'Nenhum paciente encontrado para essa busca.'}
+            {statuses.length === 0 ? 'Nenhum paciente cadastrado ainda.' : 'Nenhum paciente encontrado com esses filtros.'}
           </div>
         ) : (
           <div role="list">
