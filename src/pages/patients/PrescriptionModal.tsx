@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { createPrescription, deletePrescription, listPrescriptionsByPatient } from '../../firebase/prescriptions';
-import { defaultPrescriptionTimes, isPrescriptionActive, sortTimes } from '../../domain/prescriptions';
+import { createPrescription, deletePrescription, listAdherenceDays, listPrescriptionsByPatient } from '../../firebase/prescriptions';
+import { adherenceSummary, defaultPrescriptionTimes, isPrescriptionActive, sortTimes } from '../../domain/prescriptions';
 import { formatDateBR, todayIso as getTodayIso } from '../../lib/dates';
 import type { Prescription } from '../../types';
 
@@ -13,9 +13,26 @@ interface Props {
 
 type Frequency = 1 | 2 | 3 | 'custom';
 
+// Quantos dias o paciente marcou "feito" — últimos 7 e 30 dias (ver adherenceSummary
+// para o denominador, que conta só os dias em que a prescrição valia).
+function AdherenceLine({ prescription, doneDays, todayIso }: { prescription: Prescription; doneDays?: Set<string>; todayIso: string }) {
+  if (!doneDays || doneDays.size === 0) {
+    return <div className="hint" style={{ marginTop: 4 }}>Adesão: sem registros ainda</div>;
+  }
+  const week = adherenceSummary(prescription, doneDays, todayIso, 7);
+  const month = adherenceSummary(prescription, doneDays, todayIso, 30);
+  return (
+    <div style={{ marginTop: 4, fontSize: 13 }}>
+      <strong>Adesão:</strong> {week.done}/{week.total} {week.total === 1 ? 'dia' : 'dias'} (últimos 7) · {month.done}/{month.total}{' '}
+      {month.total === 1 ? 'dia' : 'dias'} (últimos 30)
+    </div>
+  );
+}
+
 export function PrescriptionModal({ patientId, patientName, onClose }: Props) {
   const { user, professional } = useAuth();
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
+  const [adherence, setAdherence] = useState<Record<string, Set<string>>>({});
   const [description, setDescription] = useState('');
   const [frequency, setFrequency] = useState<Frequency>(2);
   const [customCount, setCustomCount] = useState(4);
@@ -26,9 +43,22 @@ export function PrescriptionModal({ patientId, patientName, onClose }: Props) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  // Prescrições + dias marcados como "feito" pelo paciente (só das ativas, que são
+  // as que mostram adesão).
+  async function refresh(professionalId: string) {
+    const list = await listPrescriptionsByPatient(patientId, professionalId);
+    const today = getTodayIso();
+    const active = list.filter((p) => isPrescriptionActive(p, today));
+    const days = await Promise.all(active.map((p) => listAdherenceDays(p.id)));
+    setAdherence(Object.fromEntries(active.map((p, i) => [p.id, new Set(days[i])])));
+    setPrescriptions(list);
+  }
+
   useEffect(() => {
     if (!user) return;
-    listPrescriptionsByPatient(patientId, user.uid).then(setPrescriptions);
+    void refresh(user.uid);
+    // refresh só depende de patientId/user, já listados aqui.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [patientId, user]);
 
   useEffect(() => {
@@ -78,7 +108,7 @@ export function PrescriptionModal({ patientId, patientName, onClose }: Props) {
         startDate: startDate || undefined,
         endDate: endDate || undefined,
       });
-      setPrescriptions(await listPrescriptionsByPatient(patientId, user.uid));
+      await refresh(user.uid);
       setDescription('');
       setStartDate('');
       setEndDate('');
@@ -93,7 +123,7 @@ export function PrescriptionModal({ patientId, patientName, onClose }: Props) {
   async function handleRemove(id: string) {
     if (!user || !window.confirm('Remover esta prescrição? O paciente deixará de vê-la e de receber os lembretes.')) return;
     await deletePrescription(id);
-    setPrescriptions(await listPrescriptionsByPatient(patientId, user.uid));
+    await refresh(user.uid);
   }
 
   const todayIso = getTodayIso();
@@ -236,6 +266,7 @@ export function PrescriptionModal({ patientId, patientName, onClose }: Props) {
                       {(p.startDate || p.endDate) &&
                         ` — ${p.startDate ? formatDateBR(p.startDate) : 'desde já'} até ${p.endDate ? formatDateBR(p.endDate) : 'sem data de fim'}`}
                     </div>
+                    {active && <AdherenceLine prescription={p} doneDays={adherence[p.id]} todayIso={todayIso} />}
                     <button
                       type="button"
                       className="btn btn-outline btn-sm"

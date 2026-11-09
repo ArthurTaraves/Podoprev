@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { Disclaimer } from '../../components/Disclaimer';
 import { listVisitsByPatient } from '../../firebase/visits';
 import { listSwitchHistoryByPatient } from '../../firebase/switchHistory';
-import { listPrescriptionsByPatient } from '../../firebase/prescriptions';
+import { isPrescriptionDoneOn, listPrescriptionsByPatient, markPrescriptionDone } from '../../firebase/prescriptions';
 import { daysRemaining, isPrescriptionActive } from '../../domain/prescriptions';
 import { formatDateBR, todayIso as getTodayIso } from '../../lib/dates';
 import {
@@ -67,6 +67,9 @@ export function PatientCarePage() {
   const [recentlySwitched, setRecentlySwitched] = useState(false);
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [reminderStatus, setReminderStatus] = useState<ReminderPermission>('default');
+  const [doneToday, setDoneToday] = useState<Set<string>>(new Set());
+  const [markingId, setMarkingId] = useState<string | null>(null);
+  const [markErrorId, setMarkErrorId] = useState<string | null>(null);
   const [done, setDone] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
 
@@ -87,6 +90,8 @@ export function PatientCarePage() {
       setVisitDate(latest?.date ?? null);
       setRecentlySwitched(switches.length > 0);
       setPrescriptions(active);
+      const doneFlags = await Promise.all(active.map((p) => isPrescriptionDoneOn(p.id, todayIso)));
+      setDoneToday(new Set(active.filter((_, i) => doneFlags[i]).map((p) => p.id)));
       setLoading(false);
 
       // Primeira vez com algo a lembrar neste dispositivo: pede permissão. Depois
@@ -105,6 +110,21 @@ export function PatientCarePage() {
     const permission = await requestReminderPermission();
     setReminderStatus(permission);
     if (permission === 'granted') await scheduleReminders(prescriptions, instructions);
+  }
+
+  // Marcação diária de adesão — uma vez feita, não é desmarcada (a regra do
+  // Firestore só permite criar o documento do dia, nunca alterar/apagar).
+  async function handleMarkDone(prescriptionId: string) {
+    setMarkingId(prescriptionId);
+    setMarkErrorId(null);
+    try {
+      await markPrescriptionDone(prescriptionId, getTodayIso());
+      setDoneToday((prev) => new Set(prev).add(prescriptionId));
+    } catch {
+      setMarkErrorId(prescriptionId);
+    } finally {
+      setMarkingId(null);
+    }
   }
 
   function toggle(id: string) {
@@ -138,6 +158,31 @@ export function PatientCarePage() {
                     {remaining && (
                       <p className="care-description" style={{ marginTop: 8, marginBottom: 0, fontSize: 13 }}>
                         {remaining}
+                      </p>
+                    )}
+                    {doneToday.has(prescription.id) ? (
+                      <button
+                        type="button"
+                        className="btn btn-sm"
+                        disabled
+                        style={{ marginTop: 10, background: 'var(--color-risk-low)', color: 'white', opacity: 1, cursor: 'default' }}
+                      >
+                        ✓ Feito hoje
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        style={{ marginTop: 10, background: 'white' }}
+                        disabled={markingId === prescription.id}
+                        onClick={() => handleMarkDone(prescription.id)}
+                      >
+                        {markingId === prescription.id ? 'Salvando…' : 'Marcar como feito hoje'}
+                      </button>
+                    )}
+                    {markErrorId === prescription.id && (
+                      <p className="error-text" style={{ marginTop: 6, marginBottom: 0, fontSize: 12 }}>
+                        Não foi possível salvar. Tente novamente.
                       </p>
                     )}
                   </div>
