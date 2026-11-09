@@ -25,6 +25,7 @@ const ATTENTION_LABELS: Record<RiskLevel, string> = {
 const MARGIN = 15;
 const PAGE_WIDTH = 210;
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
+const LABEL_WIDTH = 50; // coluna dos rótulos em "Rótulo: valor"
 
 async function imageUrlToDataUrl(url: string): Promise<string | null> {
   try {
@@ -102,16 +103,40 @@ function createPdfWriter() {
       doc.text(text, MARGIN, y);
       y += 6;
     },
+    // "Rótulo: valor" em duas colunas. O rótulo quebra dentro da própria coluna
+    // (antes, um rótulo longo como "Sinal de alerta identificado:" invadia o valor).
     line(label: string, value: string) {
-      ensureSpace(6);
       doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      const labelLines = doc.splitTextToSize(`${label}:`, LABEL_WIDTH - 3);
+      doc.setFont('helvetica', 'normal');
+      const valueLines = doc.splitTextToSize(value || '—', CONTENT_WIDTH - LABEL_WIDTH);
+      const rows = Math.max(labelLines.length, valueLines.length, 1);
+      ensureSpace(5 * rows + 1);
       doc.setTextColor(31, 41, 55);
       doc.setFont('helvetica', 'bold');
-      doc.text(`${label}:`, MARGIN, y);
+      doc.text(labelLines, MARGIN, y);
       doc.setFont('helvetica', 'normal');
-      const lines = doc.splitTextToSize(value || '—', CONTENT_WIDTH - 45);
-      doc.text(lines, MARGIN + 45, y);
-      y += 5 * Math.max(lines.length, 1);
+      doc.text(valueLines, MARGIN + LABEL_WIDTH, y);
+      y += 5 * rows;
+    },
+    // Item de lista: título (+ detalhe, ex. frequência) em negrito numa linha e o
+    // texto embaixo, recuado — usado nas orientações ao paciente.
+    item(title: string, detail: string, text: string) {
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      const textLines = text ? doc.splitTextToSize(text, CONTENT_WIDTH - 5) : [];
+      ensureSpace(6 + 5 * textLines.length);
+      doc.setTextColor(31, 41, 55);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`• ${title}${detail ? ` — ${detail}` : ''}`, MARGIN, y);
+      y += 5;
+      if (textLines.length > 0) {
+        doc.setFont('helvetica', 'normal');
+        doc.text(textLines, MARGIN + 5, y);
+        y += 5 * textLines.length;
+      }
+      y += 2;
     },
     paragraph(text: string) {
       ensureSpace(10);
@@ -182,6 +207,7 @@ export async function generateVisitReportPdf(patient: Patient, visit: Visit, pho
   // Checklist de alerta
   w.section('Checklist de sinais de alerta');
   w.line('Sinal de alerta identificado', visit.hasCriticalAlert ? 'SIM — recomenda-se avaliação por profissional de saúde habilitado' : 'Não');
+  w.advance(3);
 
   // Conduta
   w.section('Conduta / observações do podólogo');
@@ -193,11 +219,12 @@ export async function generateVisitReportPdf(patient: Patient, visit: Visit, pho
     w.paragraph('Nenhuma orientação registrada.');
   } else {
     visit.careInstructions.forEach((instruction) => {
-      w.line(`${instruction.title} (${instruction.timesPerDay}x/dia)`, instruction.description);
+      w.item(instruction.title, `${instruction.timesPerDay}x/dia`, instruction.description);
     });
   }
 
-  // Retorno
+  // Retorno — título, data e descrição juntos (não deixar a frase sozinha na página seguinte)
+  w.ensureSpace(24);
   w.section('Sugestão de retorno');
   w.line('Data sugerida', formatDateBR(visit.returnDate));
   w.paragraph(RETURN_DESCRIPTION[visit.risk.level]);
@@ -221,8 +248,10 @@ export async function generateVisitReportPdf(patient: Patient, visit: Visit, pho
     }
   }
 
-  // Aviso legal
-  w.ensureSpace(20);
+  // Aviso legal — fixo no rodapé (y=285); só abre página nova se o conteúdo já
+  // tiver passado de ~280mm (antes reservava 20mm e jogava o aviso sozinho numa
+  // página 2 mesmo cabendo na 1).
+  w.ensureSpace(4);
   doc.setFontSize(8);
   doc.setTextColor(100, 116, 139);
   doc.setFont('helvetica', 'italic');
