@@ -317,12 +317,13 @@ export const demoVisits: Visit[] = [
     },
     conduct: 'Sinais compatíveis com má circulação. Encaminhado para avaliação vascular urgente.',
   }),
-  // Beatriz: atendida há 5 dias, nível baixo (retorno sugerido em 75 dias) → EM DIA.
+  // Beatriz: atendida há 40 dias, nível baixo (retorno sugerido em 75 dias) → EM DIA,
+  // e aparece no filtro "Sem atendimento há mais de 30 dias" da lista de pacientes.
   buildVisit({
     id: 'demo-visit-5',
     patientId: patientBeatriz.id,
     birthDateIso: patientBeatriz.birthDate,
-    daysAgo: 5,
+    daysAgo: 40,
     mainComplaint: 'Avaliação de rotina, sem queixas.',
     anamnesisOverrides: { hasPain: 'nao', practicesPhysicalActivity: 'sim' },
     conduct: 'Pés saudáveis. Mantida orientação preventiva de rotina.',
