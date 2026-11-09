@@ -770,7 +770,7 @@ export const demoPrescriptions: Prescription[] = [
     description: 'Limpar a ferida com soro fisiológico',
     timesPerDay: 2,
     times: ['08:00', '20:00'],
-    createdAt: timestampDaysAgo(3),
+    createdAt: timestampDaysAgo(25),
   },
   {
     id: 'demo-prescription-2',
@@ -784,3 +784,15 @@ export const demoPrescriptions: Prescription[] = [
     createdAt: timestampDaysAgo(2),
   },
 ];
+
+// Adesão (dias marcados como "feito" pela Maria) — hoje fica sem marcar, para dar
+// para testar o botão. Soro: 25 dias de prescrição com algumas falhas (5/7 nos
+// últimos 7 dias); curativo: os 2 dias anteriores marcados.
+function daysAgoIso(daysList: number[]): string[] {
+  return daysList.map((days) => addDaysIso(todayIso(), -days));
+}
+
+export const demoPrescriptionAdherence: Record<string, string[]> = {
+  'demo-prescription-1': daysAgoIso(Array.from({ length: 25 }, (_, i) => i + 1).filter((d) => ![4, 9, 15, 20].includes(d))),
+  'demo-prescription-2': daysAgoIso([1, 2]),
+};

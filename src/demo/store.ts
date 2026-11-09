@@ -27,6 +27,7 @@ import {
   demoPatientProfessionalLinks,
   demoPatients,
   demoPreAnamneses,
+  demoPrescriptionAdherence,
   demoPrescriptions,
   demoProfessional,
   demoProfessionalProfiles,
@@ -59,6 +60,7 @@ const patientInvites = new Map<string, PatientInvite>();
 const availabilities = new Map<string, Availability>(demoAvailabilities.map((a) => [a.professionalId, { ...a }]));
 let preAnamneses: PreAnamnesis[] = demoPreAnamneses.map((p) => ({ ...p }));
 let prescriptions: Prescription[] = demoPrescriptions.map((p) => ({ ...p }));
+const prescriptionAdherence = new Map<string, Set<string>>(Object.entries(demoPrescriptionAdherence).map(([id, days]) => [id, new Set(days)]));
 let appointments: Appointment[] = demoAppointments.map((a) => ({ ...a }));
 const appointmentSlots = new Map<string, AppointmentSlot>(demoAppointmentSlots.map((s) => [`${s.professionalId}_${s.date}_${s.startTime}`, { ...s }]));
 const professionalProfiles = new Map<string, ProfessionalProfile>(
@@ -445,4 +447,21 @@ export async function demoListPrescriptionsByPatient(patientId: string, professi
 
 export async function demoDeletePrescription(id: string): Promise<void> {
   prescriptions = prescriptions.filter((p) => p.id !== id);
+  prescriptionAdherence.delete(id);
+}
+
+// --- adesão às prescrições (espelho de prescriptions/{id}/adherence/{dia}) ---
+
+export async function demoMarkPrescriptionDone(prescriptionId: string, dayIso: string): Promise<void> {
+  const days = prescriptionAdherence.get(prescriptionId) ?? new Set<string>();
+  days.add(dayIso);
+  prescriptionAdherence.set(prescriptionId, days);
+}
+
+export async function demoIsPrescriptionDoneOn(prescriptionId: string, dayIso: string): Promise<boolean> {
+  return prescriptionAdherence.get(prescriptionId)?.has(dayIso) ?? false;
+}
+
+export async function demoListAdherenceDays(prescriptionId: string): Promise<string[]> {
+  return [...(prescriptionAdherence.get(prescriptionId) ?? [])];
 }
