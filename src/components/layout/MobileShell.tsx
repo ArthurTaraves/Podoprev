@@ -5,6 +5,7 @@ export interface MobileNavItem {
   to: string;
   label: string;
   icon: string;
+  badge?: number; // contador (ex.: notificações não lidas); 0/ausente = sem bolinha
 }
 
 interface Props {
@@ -35,7 +36,14 @@ export function MobileShell({ title, navItems, onLogout, children, banner }: Pro
       <nav className="mobile-tabbar">
         {navItems.map((item) => (
           <NavLink key={item.to} to={item.to} className={({ isActive }) => `mobile-tab ${isActive ? 'active' : ''}`}>
-            <span className="mobile-tab-icon">{item.icon}</span>
+            <span className="mobile-tab-icon">
+              {item.icon}
+              {!!item.badge && (
+                <span className="mobile-tab-badge" aria-label={`${item.badge} não lida(s)`}>
+                  {item.badge > 9 ? '9+' : item.badge}
+                </span>
+              )}
+            </span>
             <span>{item.label}</span>
           </NavLink>
         ))}

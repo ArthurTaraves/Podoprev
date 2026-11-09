@@ -101,9 +101,16 @@ const PRESCRIPTION_TITLE = '🔔 Lembrete do seu podólogo';
 
 let webTimers: number[] = [];
 
+// register() resolve antes de o worker ficar ativo; no primeiro acesso,
+// showNotification() falharia ("no active registration"). `ready` só resolve com
+// o worker ativo — o limite de 5s evita travar se ele nunca ativar.
 async function getServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   try {
-    return await navigator.serviceWorker.register('/sw.js');
+    await navigator.serviceWorker.register('/sw.js');
+    return await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
+    ]);
   } catch {
     return null;
   }
@@ -201,6 +208,53 @@ async function scheduleNative(prescriptions: Prescription[], careInstructions: C
   await clearNativeReminders();
   const notifications = [...careNotifications(careInstructions), ...prescriptionNotifications(prescriptions)];
   if (notifications.length > 0) await LocalNotifications.schedule({ notifications });
+}
+
+// --- Notificação imediata (ex.: "novo cuidado prescrito") ---
+// Sem servidor de push, só dispara quando o app/site está aberto e encontra uma
+// notificação ainda não exibida neste aparelho — guardamos os ids já exibidos para
+// não repetir a cada navegação.
+
+const SHOWN_NOTIFICATIONS_KEY = 'podoprev.shownNotifications';
+const INSTANT_ID_BASE = 200000; // fora das faixas dos lembretes agendados
+
+function readShownIds(): Set<string> {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(SHOWN_NOTIFICATIONS_KEY) ?? '[]') as string[]);
+  } catch {
+    return new Set();
+  }
+}
+
+export async function showNotificationsOnce(items: { id: string; message: string }[]): Promise<void> {
+  const shown = readShownIds();
+  const pending = items.filter((item) => !shown.has(item.id));
+  if (pending.length === 0) return;
+  try {
+    if ((await getReminderPermission()) !== 'granted') return;
+    if (isNative()) {
+      await ensureChannel();
+      await LocalNotifications.schedule({
+        notifications: pending.map((item, index) => ({
+          id: INSTANT_ID_BASE + (Date.now() % 100000) + index,
+          title: '🦶 PodoPrev',
+          body: item.message,
+          channelId: CHANNEL_ID,
+        })),
+      });
+    } else {
+      const registration = await getServiceWorker();
+      for (const item of pending) {
+        const options = { body: item.message, tag: `notification-${item.id}`, icon: '/favicon.svg', data: { url: '/patient/care' } };
+        if (registration) await registration.showNotification('🦶 PodoPrev', options);
+        else new Notification('🦶 PodoPrev', options);
+      }
+    }
+    pending.forEach((item) => shown.add(item.id));
+    localStorage.setItem(SHOWN_NOTIFICATIONS_KEY, JSON.stringify([...shown]));
+  } catch {
+    // Aviso extra — o contador na aba Cuidados continua funcionando sem ele.
+  }
 }
 
 // --- API pública ---

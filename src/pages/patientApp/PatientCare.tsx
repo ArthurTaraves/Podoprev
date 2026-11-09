@@ -5,6 +5,7 @@ import { Disclaimer } from '../../components/Disclaimer';
 import { listVisitsByPatient } from '../../firebase/visits';
 import { listSwitchHistoryByPatient } from '../../firebase/switchHistory';
 import { isPrescriptionDoneOn, listPrescriptionsByPatient, markPrescriptionDone } from '../../firebase/prescriptions';
+import { listUnreadNotifications, markNotificationsRead, notifyNotificationsChanged } from '../../firebase/notifications';
 import { daysRemaining, isPrescriptionActive } from '../../domain/prescriptions';
 import { formatDateBR, todayIso as getTodayIso } from '../../lib/dates';
 import {
@@ -93,6 +94,18 @@ export function PatientCarePage() {
       const doneFlags = await Promise.all(active.map((p) => isPrescriptionDoneOn(p.id, todayIso)));
       setDoneToday(new Set(active.filter((_, i) => doneFlags[i]).map((p) => p.id)));
       setLoading(false);
+
+      // Abrir a aba Cuidados conta como ter visto os avisos de nova prescrição.
+      try {
+        const unread = await listUnreadNotifications(patientAccount.patientId);
+        const prescriptionNotifications = unread.filter((n) => n.type === 'new_prescription');
+        if (prescriptionNotifications.length > 0) {
+          await markNotificationsRead(prescriptionNotifications.map((n) => n.id));
+          notifyNotificationsChanged();
+        }
+      } catch {
+        // contador é só indicativo — se falhar, o aviso continua até a próxima visita
+      }
 
       // Primeira vez com algo a lembrar neste dispositivo: pede permissão. Depois
       // disso, só pelo botão "Ativar lembretes" (não insiste a cada visita à aba).
