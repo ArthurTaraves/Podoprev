@@ -56,3 +56,8 @@ export function defaultPrescriptionTimes(timesPerDay: number): string[] {
 export function sortTimes(times: string[]): string[] {
   return [...times].sort();
 }
+
+// Texto da notificação enviada ao paciente quando uma prescrição é criada.
+export function newPrescriptionMessage(description: string): string {
+  return `Seu podólogo prescreveu um novo cuidado: ${description}`;
+}

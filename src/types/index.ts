@@ -248,6 +248,23 @@ export interface Prescription {
   createdAt: number;
 }
 
+// --- Notificações para o paciente (ex.: "novo cuidado prescrito") ---
+// Criadas pelo profissional junto com a prescrição (mesmo batch); o paciente só
+// pode marcar como lida. Alimentam o contador na aba "Cuidados".
+
+export type AppNotificationType = 'new_prescription';
+
+export interface AppNotification {
+  id: string;
+  patientId: string;
+  professionalId: string;
+  type: AppNotificationType;
+  message: string;
+  prescriptionId: string;
+  read: boolean;
+  createdAt: number;
+}
+
 // --- Agendamento (Onda 2) ---
 // Duas coleções: `appointments` guarda o dado real (com patientId); `appointmentSlots`
 // é o espelho sem nenhum dado pessoal, só ocupação — é o que o paciente consulta pra

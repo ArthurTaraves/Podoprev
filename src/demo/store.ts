@@ -1,6 +1,7 @@
 import { v4 as uuid } from 'uuid';
 import type {
   Anamnesis,
+  AppNotification,
   Appointment,
   AppointmentSlot,
   Availability,
@@ -27,6 +28,7 @@ import {
   demoPatientProfessionalLinks,
   demoPatients,
   demoPreAnamneses,
+  demoNotifications,
   demoPrescriptionAdherence,
   demoPrescriptions,
   demoProfessional,
@@ -36,6 +38,7 @@ import {
   demoVisits,
   DEMO_PROFESSIONAL_UID,
 } from './seed';
+import { newPrescriptionMessage } from '../domain/prescriptions';
 
 // Camada de dados 100% em memória (sem Firebase), usada apenas quando
 // `isFirebaseConfigured` é falso — ver src/firebase/config.ts. Cada função aqui
@@ -60,6 +63,7 @@ const patientInvites = new Map<string, PatientInvite>();
 const availabilities = new Map<string, Availability>(demoAvailabilities.map((a) => [a.professionalId, { ...a }]));
 let preAnamneses: PreAnamnesis[] = demoPreAnamneses.map((p) => ({ ...p }));
 let prescriptions: Prescription[] = demoPrescriptions.map((p) => ({ ...p }));
+let notifications: AppNotification[] = demoNotifications.map((n) => ({ ...n }));
 const prescriptionAdherence = new Map<string, Set<string>>(Object.entries(demoPrescriptionAdherence).map(([id, days]) => [id, new Set(days)]));
 let appointments: Appointment[] = demoAppointments.map((a) => ({ ...a }));
 const appointmentSlots = new Map<string, AppointmentSlot>(demoAppointmentSlots.map((s) => [`${s.professionalId}_${s.date}_${s.startTime}`, { ...s }]));
@@ -436,8 +440,31 @@ export async function demoSaveProfessionalValidation(
 
 export async function demoCreatePrescription(data: Omit<Prescription, 'id' | 'createdAt'>): Promise<string> {
   const id = `demo-prescription-${uuid()}`;
-  prescriptions.push({ ...data, id, createdAt: Date.now() });
+  const now = Date.now();
+  prescriptions.push({ ...data, id, createdAt: now });
+  // Mesmo comportamento do Firestore: a notificação nasce junto com a prescrição.
+  notifications.push({
+    id: `demo-notification-${uuid()}`,
+    patientId: data.patientId,
+    professionalId: data.professionalId,
+    type: 'new_prescription',
+    message: newPrescriptionMessage(data.description),
+    prescriptionId: id,
+    read: false,
+    createdAt: now,
+  });
   return id;
+}
+
+// --- notifications ---
+
+export async function demoListUnreadNotifications(patientId: string): Promise<AppNotification[]> {
+  return notifications.filter((n) => n.patientId === patientId && !n.read).sort((a, b) => b.createdAt - a.createdAt);
+}
+
+export async function demoMarkNotificationsRead(ids: string[]): Promise<void> {
+  const set = new Set(ids);
+  notifications = notifications.map((n) => (set.has(n.id) ? { ...n, read: true } : n));
 }
 
 export async function demoListPrescriptionsByPatient(patientId: string, professionalId: string): Promise<Prescription[]> {

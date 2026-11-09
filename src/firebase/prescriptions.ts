@@ -1,4 +1,4 @@
-import { addDoc, collection, doc, getDoc, getDocs, query, setDoc, where, writeBatch } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, setDoc, where, writeBatch } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from './config';
 import {
   demoCreatePrescription,
@@ -9,16 +9,33 @@ import {
   demoMarkPrescriptionDone,
 } from '../demo/store';
 import { stripUndefined } from '../lib/firestoreSanitize';
+import { notificationsRef } from './notifications';
+import { newPrescriptionMessage } from '../domain/prescriptions';
 import type { Prescription } from '../types';
 
 const prescriptionsRef = collection(db, 'prescriptions');
 
 export type NewPrescription = Omit<Prescription, 'id' | 'createdAt'>;
 
+// Grava a prescrição e a notificação "novo cuidado prescrito" para o paciente no
+// mesmo batch — nunca fica uma sem a outra.
 export async function createPrescription(data: NewPrescription): Promise<string> {
   if (!isFirebaseConfigured) return demoCreatePrescription(data);
-  const docRef = await addDoc(prescriptionsRef, stripUndefined({ ...data, createdAt: Date.now() }));
-  return docRef.id;
+  const now = Date.now();
+  const prescriptionDoc = doc(prescriptionsRef);
+  const batch = writeBatch(db);
+  batch.set(prescriptionDoc, stripUndefined({ ...data, createdAt: now }));
+  batch.set(doc(notificationsRef), {
+    patientId: data.patientId,
+    professionalId: data.professionalId,
+    type: 'new_prescription',
+    message: newPrescriptionMessage(data.description),
+    prescriptionId: prescriptionDoc.id,
+    read: false,
+    createdAt: now,
+  });
+  await batch.commit();
+  return prescriptionDoc.id;
 }
 
 // Filtro duplo (professionalId + patientId), mesmo motivo documentado em

@@ -1,5 +1,6 @@
 import type {
   Anamnesis,
+  AppNotification,
   Appointment,
   AppointmentSlot,
   Availability,
@@ -796,3 +797,18 @@ export const demoPrescriptionAdherence: Record<string, string[]> = {
   'demo-prescription-1': daysAgoIso(Array.from({ length: 25 }, (_, i) => i + 1).filter((d) => ![4, 9, 15, 20].includes(d))),
   'demo-prescription-2': daysAgoIso([1, 2]),
 };
+
+// Notificação não lida para Maria — demonstra o contador vermelho na aba
+// "Cuidados" (some ao abrir a aba, que marca como lida).
+export const demoNotifications: AppNotification[] = [
+  {
+    id: 'demo-notification-1',
+    patientId: patientMaria.id,
+    professionalId: DEMO_PROFESSIONAL_UID,
+    type: 'new_prescription',
+    message: 'Seu podólogo prescreveu um novo cuidado: Trocar o curativo',
+    prescriptionId: 'demo-prescription-2',
+    read: false,
+    createdAt: timestampDaysAgo(2),
+  },
+];

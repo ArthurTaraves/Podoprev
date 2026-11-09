@@ -103,6 +103,22 @@ service cloud.firestore {
       }
     }
 
+    // --- notifications (avisos para o paciente, ex.: novo cuidado prescrito) ---
+    // Profissional dono do paciente cria (junto com a prescrição, mesmo batch);
+    // paciente vinculado lê e só pode marcar como lida — nada mais muda.
+    // A leitura só referencia patientId, que a query do paciente fixa por igualdade.
+    match /notifications/{notificationId} {
+      allow read: if isLinkedPatient(resource.data.patientId);
+      allow create: if isOwner(request.resource.data.professionalId)
+        && get(/databases/$(database)/documents/patients/$(request.resource.data.patientId)).data.professionalId == request.auth.uid
+        && request.resource.data.type == 'new_prescription'
+        && request.resource.data.read == false
+        && request.resource.data.keys().hasOnly(['patientId', 'professionalId', 'type', 'message', 'prescriptionId', 'read', 'createdAt']);
+      allow update: if isLinkedPatient(resource.data.patientId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])
+        && request.resource.data.read == true;
+    }
+
     // --- professionalValidations (etapa complementar de cadastro, demonstrativa) ---
     // Coleção isolada, separada de `users` (autenticação) e `professionalProfiles`
     // (perfil público da busca) de propósito — não expõe nada publicamente e não
