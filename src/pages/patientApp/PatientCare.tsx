@@ -4,9 +4,16 @@ import { useAuth } from '../../context/AuthContext';
 import { Disclaimer } from '../../components/Disclaimer';
 import { listVisitsByPatient } from '../../firebase/visits';
 import { listSwitchHistoryByPatient } from '../../firebase/switchHistory';
-import { isPrescriptionDoneOn, listPrescriptionsByPatient, markPrescriptionDone } from '../../firebase/prescriptions';
+import { isPrescriptionDoneOn, listAdherenceDays, listPrescriptionsByPatient, markPrescriptionDone } from '../../firebase/prescriptions';
 import { listUnreadNotifications, markNotificationsRead, notifyNotificationsChanged } from '../../firebase/notifications';
-import { daysRemaining, isPrescriptionActive } from '../../domain/prescriptions';
+import {
+  daysRemaining,
+  isPrescriptionActive,
+  prescriptionEffectiveEndDate,
+  prescriptionStartDate,
+  prescriptionStatus,
+  totalAdherence,
+} from '../../domain/prescriptions';
 import { formatDateBR, todayIso as getTodayIso } from '../../lib/dates';
 import {
   getReminderPermission,
@@ -67,6 +74,9 @@ export function PatientCarePage() {
   const [visitDate, setVisitDate] = useState<number | null>(null);
   const [recentlySwitched, setRecentlySwitched] = useState(false);
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
+  const [endedPrescriptions, setEndedPrescriptions] = useState<Prescription[]>([]);
+  const [endedAdherence, setEndedAdherence] = useState<Record<string, Set<string>>>({});
+  const [showEnded, setShowEnded] = useState(false);
   const [reminderStatus, setReminderStatus] = useState<ReminderPermission>('default');
   const [doneToday, setDoneToday] = useState<Set<string>>(new Set());
   const [markingId, setMarkingId] = useState<string | null>(null);
@@ -91,6 +101,12 @@ export function PatientCarePage() {
       setVisitDate(latest?.date ?? null);
       setRecentlySwitched(switches.length > 0);
       setPrescriptions(active);
+      const ended = allPrescriptions
+        .filter((p) => prescriptionStatus(p, todayIso) === 'encerrada')
+        .sort((a, b) => (prescriptionEffectiveEndDate(b) ?? '').localeCompare(prescriptionEffectiveEndDate(a) ?? ''));
+      const endedDays = await Promise.all(ended.map((p) => listAdherenceDays(p.id)));
+      setEndedPrescriptions(ended);
+      setEndedAdherence(Object.fromEntries(ended.map((p, i) => [p.id, new Set(endedDays[i])])));
       const doneFlags = await Promise.all(active.map((p) => isPrescriptionDoneOn(p.id, todayIso)));
       setDoneToday(new Set(active.filter((_, i) => doneFlags[i]).map((p) => p.id)));
       setLoading(false);
@@ -203,6 +219,49 @@ export function PatientCarePage() {
               </div>
             );
           })}
+        </section>
+      )}
+
+      {/* Histórico: prescrições que já terminaram ou foram removidas pelo podólogo. */}
+      {endedPrescriptions.length > 0 && (
+        <section style={{ marginBottom: 20 }}>
+          <button
+            type="button"
+            onClick={() => setShowEnded((v) => !v)}
+            aria-expanded={showEnded}
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              width: '100%',
+              background: 'none',
+              border: 'none',
+              padding: '4px 0',
+              font: 'inherit',
+              cursor: 'pointer',
+              color: 'inherit',
+            }}
+          >
+            <span style={{ fontSize: 16, fontWeight: 700 }}>Cuidados anteriores ({endedPrescriptions.length})</span>
+            <span aria-hidden="true" style={{ color: 'var(--color-text-muted)' }}>{showEnded ? '▲' : '▼'}</span>
+          </button>
+          {showEnded &&
+            endedPrescriptions.map((prescription) => {
+              const total = totalAdherence(prescription, endedAdherence[prescription.id] ?? new Set(), todayIso);
+              const end = prescriptionEffectiveEndDate(prescription);
+              return (
+                <div key={prescription.id} className="card" style={{ marginTop: 8, marginBottom: 0, padding: 14, background: '#f8fafc' }}>
+                  <strong style={{ fontSize: 14 }}>{prescription.description}</strong>
+                  <p className="hint" style={{ margin: '4px 0 0', fontSize: 13 }}>
+                    {formatDateBR(prescriptionStartDate(prescription))} a {end ? formatDateBR(end) : '—'}
+                    {prescription.removedAt ? ' · encerrada pelo podólogo' : ''}
+                  </p>
+                  <p style={{ margin: '4px 0 0', fontSize: 13 }}>
+                    ✓ {total.done}/{total.total} {total.total === 1 ? 'dia feito' : 'dias feitos'}
+                  </p>
+                </div>
+              );
+            })}
         </section>
       )}
 

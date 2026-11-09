@@ -1,7 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { createPrescription, deletePrescription, listAdherenceDays, listPrescriptionsByPatient } from '../../firebase/prescriptions';
-import { adherenceSummary, defaultPrescriptionTimes, isPrescriptionActive, sortTimes } from '../../domain/prescriptions';
+import { createPrescription, listAdherenceDays, listPrescriptionsByPatient, removePrescription } from '../../firebase/prescriptions';
+import {
+  adherenceSummary,
+  defaultPrescriptionTimes,
+  prescriptionEffectiveEndDate,
+  prescriptionStartDate,
+  prescriptionStatus,
+  sortTimes,
+  totalAdherence,
+} from '../../domain/prescriptions';
 import { formatDateBR, todayIso as getTodayIso } from '../../lib/dates';
 import type { Prescription } from '../../types';
 
@@ -48,9 +56,10 @@ export function PrescriptionModal({ patientId, patientName, onClose }: Props) {
   async function refresh(professionalId: string) {
     const list = await listPrescriptionsByPatient(patientId, professionalId);
     const today = getTodayIso();
-    const active = list.filter((p) => isPrescriptionActive(p, today));
-    const days = await Promise.all(active.map((p) => listAdherenceDays(p.id)));
-    setAdherence(Object.fromEntries(active.map((p, i) => [p.id, new Set(days[i])])));
+    // Agendadas ainda não têm adesão; ativas e encerradas, sim.
+    const withAdherence = list.filter((p) => prescriptionStatus(p, today) !== 'agendada');
+    const days = await Promise.all(withAdherence.map((p) => listAdherenceDays(p.id)));
+    setAdherence(Object.fromEntries(withAdherence.map((p, i) => [p.id, new Set(days[i])])));
     setPrescriptions(list);
   }
 
@@ -121,12 +130,15 @@ export function PrescriptionModal({ patientId, patientName, onClose }: Props) {
   }
 
   async function handleRemove(id: string) {
-    if (!user || !window.confirm('Remover esta prescrição? O paciente deixará de vê-la e de receber os lembretes.')) return;
-    await deletePrescription(id);
+    if (!user || !window.confirm('Remover esta prescrição? Ela deixa de valer e de gerar lembretes, mas continua no histórico do paciente como encerrada.')) return;
+    await removePrescription(id);
     await refresh(user.uid);
   }
 
   const todayIso = getTodayIso();
+  // Ativas + agendadas (ainda valem ou vão valer) em cima; encerradas embaixo.
+  const current = prescriptions.filter((p) => prescriptionStatus(p, todayIso) !== 'encerrada');
+  const ended = prescriptions.filter((p) => prescriptionStatus(p, todayIso) === 'encerrada');
 
   return (
     <div
@@ -249,17 +261,19 @@ export function PrescriptionModal({ patientId, patientName, onClose }: Props) {
           {saving ? 'Salvando…' : 'Salvar prescrição'}
         </button>
 
-        {prescriptions.length > 0 && (
+        {current.length > 0 && (
           <div style={{ marginTop: 20 }}>
             <strong style={{ fontSize: 14 }}>Prescrições deste paciente</strong>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
-              {prescriptions.map((p) => {
-                const active = isPrescriptionActive(p, todayIso);
+              {current.map((p) => {
+                const active = prescriptionStatus(p, todayIso) === 'ativa';
                 return (
                   <div key={p.id} style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: 10 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start' }}>
                       <span style={{ fontSize: 14, fontWeight: 600 }}>{p.description}</span>
-                      <span className={`badge ${active ? 'badge-low' : 'badge-moderate'}`}>{active ? 'Ativa' : 'Fora do período'}</span>
+                      <span className={`badge ${active ? 'badge-low' : 'badge-moderate'}`}>
+                        {active ? 'Ativa' : `Começa em ${formatDateBR(prescriptionStartDate(p))}`}
+                      </span>
                     </div>
                     <div className="hint" style={{ marginTop: 4 }}>
                       {p.times.join(' · ')}
@@ -275,6 +289,38 @@ export function PrescriptionModal({ patientId, patientName, onClose }: Props) {
                     >
                       Remover
                     </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Encerradas: fora do período ou removidas (soft delete). Sem "Remover". */}
+        {ended.length > 0 && (
+          <div style={{ marginTop: 20 }}>
+            <strong style={{ fontSize: 14, color: 'var(--color-text-muted)' }}>Encerradas</strong>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+              {ended.map((p) => {
+                const total = totalAdherence(p, adherence[p.id] ?? new Set(), todayIso);
+                const end = prescriptionEffectiveEndDate(p);
+                return (
+                  <div
+                    key={p.id}
+                    style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: 10, background: '#f8fafc', color: 'var(--color-text-muted)' }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start' }}>
+                      <span style={{ fontSize: 14, fontWeight: 600 }}>{p.description}</span>
+                      <span className="badge" style={{ background: '#e2e8f0', color: '#475569' }}>
+                        {p.removedAt ? 'Removida' : 'Encerrada'}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 12.5, marginTop: 4 }}>
+                      {formatDateBR(prescriptionStartDate(p))} a {end ? formatDateBR(end) : '—'} · {p.times.join(' · ')}
+                    </div>
+                    <div style={{ fontSize: 12.5, marginTop: 2 }}>
+                      Adesão total: {total.done}/{total.total} {total.total === 1 ? 'dia' : 'dias'}
+                    </div>
                   </div>
                 );
               })}
