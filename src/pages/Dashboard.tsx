@@ -12,7 +12,8 @@ import {
   type PatientActionStatus,
 } from '../domain/actionQueue';
 import { describePanelEvolution } from '../domain/evolution';
-import { formatDateBR } from '../lib/dates';
+import { formatDateBR, todayIso } from '../lib/dates';
+import { matchesAttention, matchesSituation } from '../domain/patientFilters';
 
 // Duas maiores pontuações do atendimento, como frase simples — a "explicação"
 // de por que o paciente está em destaque no grupo 1.
@@ -149,8 +150,21 @@ export function DashboardPage() {
     setLoading(false);
   }
 
+  const today = todayIso();
+  const noAppointments = new Set<string>(); // "sem atendimento há 30+ dias" não depende de consultas agendadas
+  const SUMMARY_CARDS: { label: string; className: string; to: string; matches: (s: PatientActionStatus) => boolean }[] = [
+    { label: 'Total de pacientes', className: 'stat-blue', to: '/app/patients', matches: () => true },
+    { label: 'Atenção alta', className: 'stat-red', to: '/app/patients?nivel=alto', matches: (s) => matchesAttention(s, 'alto') },
+    { label: 'Aguardando avaliação', className: 'stat-gray', to: '/app/patients?nivel=aguardando', matches: (s) => matchesAttention(s, 'aguardando') },
+    {
+      label: 'Sem atendimento há 30+ dias',
+      className: 'stat-yellow',
+      to: '/app/patients?situacao=sem_atendimento_30',
+      matches: (s) => matchesSituation(s, 'sem_atendimento_30', noAppointments, today),
+    },
+  ];
+
   const attentionToday = statuses.filter(needsAttentionToday);
-  const highAttention = statuses.filter((s) => s.priority === 'alto');
   const upToDate = statuses.filter((s) => s.priority === 'em_dia');
 
   const diabeticCount = statuses.filter((s) => s.latestVisit?.anamnesis.diabetes.hasDiabetes === 'sim').length;
@@ -191,15 +205,20 @@ export function DashboardPage() {
         <p>Carregando painel…</p>
       ) : (
         <>
+          {/* Resumo: mesmas regras dos filtros da lista de pacientes (domain/patientFilters),
+              então o número do card é sempre o que a lista filtrada mostra. */}
+          <div className="stat-grid-2x2">
+            {SUMMARY_CARDS.map((card) => (
+              <button key={card.label} type="button" className={`stat-card ${card.className}`} onClick={() => navigate(card.to)}>
+                <div className="stat-value">{statuses.filter(card.matches).length}</div>
+                <div className="stat-label">{card.label}</div>
+              </button>
+            ))}
+          </div>
+
           <div className="stat-strip">
-            <div className="stat-pill">
-              <strong>{statuses.length}</strong> pacientes
-            </div>
             <div className="stat-pill stat-pill-urgent">
               <strong>{attentionToday.length}</strong> precisam de atenção hoje
-            </div>
-            <div className="stat-pill stat-pill-high">
-              <strong>{highAttention.length}</strong> alto nível de atenção
             </div>
             <div className="stat-pill stat-pill-ok">
               <strong>{upToDate.length}</strong> em dia

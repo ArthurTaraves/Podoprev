@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { listPatients } from '../../firebase/patients';
 import { latestVisitByPatient, listVisitsByProfessional, previousVisitByPatient } from '../../firebase/visits';
@@ -16,6 +16,7 @@ import {
   matchesAttention,
   matchesSearch,
   matchesSituation,
+  parseFilter,
   type AttentionFilter,
   type SituationFilter,
 } from '../../domain/patientFilters';
@@ -30,15 +31,28 @@ type SwitchBadge = 'compartilhado' | 'nao_autorizado' | null;
 export function PatientListPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  // ?nivel= e ?situacao= abrem a lista já filtrada (ex.: cards de resumo do Painel).
+  const [searchParams] = useSearchParams();
   const [statuses, setStatuses] = useState<PatientActionStatus[]>([]);
   const [pendingPreAnamnesisIds, setPendingPreAnamnesisIds] = useState<Set<string>>(new Set());
   const [switchBadges, setSwitchBadges] = useState<Record<string, SwitchBadge>>({});
   const [positiveEvolutionIds, setPositiveEvolutionIds] = useState<Set<string>>(new Set());
   const [upcomingAppointmentIds, setUpcomingAppointmentIds] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
-  const [attentionFilter, setAttentionFilter] = useState<AttentionFilter>('todos');
-  const [situationFilter, setSituationFilter] = useState<SituationFilter>('todos');
+  const [attentionFilter, setAttentionFilter] = useState<AttentionFilter>(() =>
+    parseFilter(searchParams.get('nivel'), ATTENTION_FILTER_OPTIONS, 'todos'),
+  );
+  const [situationFilter, setSituationFilter] = useState<SituationFilter>(() =>
+    parseFilter(searchParams.get('situacao'), SITUATION_FILTER_OPTIONS, 'todos'),
+  );
   const [loading, setLoading] = useState(true);
+
+  // Mesma tela, URL diferente (ex.: card do Painel → aba "Pacientes" sem filtro):
+  // o componente não é recriado, então os filtros acompanham a URL aqui.
+  useEffect(() => {
+    setAttentionFilter(parseFilter(searchParams.get('nivel'), ATTENTION_FILTER_OPTIONS, 'todos'));
+    setSituationFilter(parseFilter(searchParams.get('situacao'), SITUATION_FILTER_OPTIONS, 'todos'));
+  }, [searchParams]);
 
   useEffect(() => {
     if (!user) return;

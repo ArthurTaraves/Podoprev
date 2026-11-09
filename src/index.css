@@ -459,6 +459,52 @@ button {
   margin-top: 4px;
 }
 
+/* Resumo do Painel: 4 cards clicáveis em 2×2 (cada um abre a lista já filtrada). */
+.stat-grid-2x2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+button.stat-card {
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  padding: 14px;
+  border-left-width: 4px;
+}
+
+button.stat-card .stat-value {
+  font-size: 28px;
+  line-height: 1.1;
+}
+
+.stat-card.stat-blue {
+  border-left-color: var(--color-primary);
+}
+.stat-card.stat-blue .stat-value {
+  color: var(--color-primary);
+}
+.stat-card.stat-red {
+  border-left-color: var(--color-risk-high);
+}
+.stat-card.stat-red .stat-value {
+  color: var(--color-risk-high);
+}
+.stat-card.stat-gray {
+  border-left-color: #94a3b8;
+}
+.stat-card.stat-gray .stat-value {
+  color: #475569;
+}
+.stat-card.stat-yellow {
+  border-left-color: #eab308;
+}
+.stat-card.stat-yellow .stat-value {
+  color: #b45309;
+}
+
 .stat-card.risk-low .stat-value {
   color: var(--color-risk-low);
 }

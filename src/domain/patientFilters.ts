@@ -24,6 +24,12 @@ export const SITUATION_FILTER_OPTIONS: { value: SituationFilter; label: string }
 
 const STALE_DAYS = 30;
 
+// Valor de filtro vindo da URL (?nivel=, ?situacao=) — ignora o que não for uma
+// opção conhecida, para um link antigo/errado não deixar a lista num estado inválido.
+export function parseFilter<T extends string>(raw: string | null, options: { value: T }[], fallback: T): T {
+  return options.find((option) => option.value === raw)?.value ?? fallback;
+}
+
 export function matchesAttention(status: PatientActionStatus, filter: AttentionFilter): boolean {
   if (filter === 'todos') return true;
   if (filter === 'aguardando') return status.latestVisit === null;
