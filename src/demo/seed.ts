@@ -8,6 +8,7 @@ import type {
   ExamSigns,
   Patient,
   PatientAccount,
+  PatientPhoto,
   PatientProfessionalLink,
   PreAnamnesis,
   Prescription,
@@ -482,6 +483,56 @@ export const demoVisits: Visit[] = [
     anamnesisOverrides: { hasPain: 'nao', practicesPhysicalActivity: 'sim' },
     conduct: 'Pés sem alterações relevantes. Iniciado acompanhamento preventivo.',
   }),
+];
+
+// --- Fotos fictícias (comparador de evolução fotográfica) ---
+// Ilustrações SVG geradas em código — não são fotos reais de pacientes. Cada
+// estágio desenha a mesma planta do pé com uma lesão cada vez menor/mais clara,
+// só para o modo "Ver evolução" da aba Fotos ter o que comparar no demo.
+function footIllustration(params: { foot: 'direito' | 'esquerdo'; lesionX: number; lesionY: number; lesionR: number; lesionColor: string; label: string }): string {
+  const mirror = params.foot === 'esquerdo' ? 'translate(200 0) scale(-1 1)' : '';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+<rect width="200" height="200" fill="#eef2f5"/>
+<g transform="${mirror}">
+<path d="M70 60 C60 100 62 150 80 180 C95 198 125 196 132 175 C140 150 128 120 135 90 C140 65 125 50 105 52 C88 53 75 52 70 60 Z" fill="#f2d3bd" stroke="#c9a084" stroke-width="2"/>
+<circle cx="72" cy="45" r="11" fill="#f2d3bd" stroke="#c9a084" stroke-width="2"/>
+<circle cx="93" cy="36" r="8" fill="#f2d3bd" stroke="#c9a084" stroke-width="2"/>
+<circle cx="110" cy="36" r="7" fill="#f2d3bd" stroke="#c9a084" stroke-width="2"/>
+<circle cx="125" cy="42" r="6" fill="#f2d3bd" stroke="#c9a084" stroke-width="2"/>
+<circle cx="137" cy="52" r="5" fill="#f2d3bd" stroke="#c9a084" stroke-width="2"/>
+${params.lesionR > 0 ? `<ellipse cx="${params.lesionX}" cy="${params.lesionY}" rx="${params.lesionR}" ry="${params.lesionR * 0.75}" fill="${params.lesionColor}" opacity="0.85"/>` : ''}
+</g>
+<text x="100" y="194" font-family="sans-serif" font-size="9" fill="#6b7785" text-anchor="middle">${params.label} · imagem ilustrativa</text>
+</svg>`;
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
+function demoPhoto(params: { id: string; visit: Visit; foot: 'direito' | 'esquerdo'; caption: string; lesionX: number; lesionY: number; lesionR: number; lesionColor: string }): PatientPhoto {
+  return {
+    id: params.id,
+    patientId: params.visit.patientId,
+    visitId: params.visit.id,
+    professionalId: params.visit.professionalId,
+    foot: params.foot,
+    caption: params.caption,
+    storagePath: '',
+    url: footIllustration({ ...params, label: `Pé ${params.foot}` }),
+    createdAt: params.visit.date,
+  };
+}
+
+function visitById(id: string): Visit {
+  return demoVisits.find((v) => v.id === id)!;
+}
+
+export const demoPhotos: PatientPhoto[] = [
+  // Roberto: ferida no pé esquerdo cicatrizando ao longo de 3 atendimentos.
+  demoPhoto({ id: 'demo-photo-1', visit: visitById('demo-visit-8'), foot: 'esquerdo', caption: 'Ferida na região do antepé', lesionX: 100, lesionY: 85, lesionR: 16, lesionColor: '#b3261e' }),
+  demoPhoto({ id: 'demo-photo-2', visit: visitById('demo-visit-9'), foot: 'esquerdo', caption: 'Ferida cicatrizada, calosidade residual', lesionX: 100, lesionY: 85, lesionR: 9, lesionColor: '#d9a066' }),
+  demoPhoto({ id: 'demo-photo-3', visit: visitById('demo-visit-10'), foot: 'esquerdo', caption: 'Sem sinais residuais', lesionX: 100, lesionY: 85, lesionR: 0, lesionColor: '#d9a066' }),
+  // Maria: rachadura no calcanhar direito em cicatrização (2 atendimentos).
+  demoPhoto({ id: 'demo-photo-4', visit: visitById('demo-visit-1'), foot: 'direito', caption: 'Rachadura no calcanhar', lesionX: 105, lesionY: 172, lesionR: 12, lesionColor: '#a8423a' }),
+  demoPhoto({ id: 'demo-photo-5', visit: visitById('demo-visit-6'), foot: 'direito', caption: 'Rachadura em cicatrização', lesionX: 105, lesionY: 172, lesionR: 7, lesionColor: '#c98a6b' }),
 ];
 
 // Conta de paciente de demonstração — vinculada a Maria Souza, cujo atendimento

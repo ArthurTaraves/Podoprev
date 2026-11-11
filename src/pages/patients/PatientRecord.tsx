@@ -16,6 +16,7 @@ import { listPrescriptionsByPatient } from '../../firebase/prescriptions';
 import { isPrescriptionActive } from '../../domain/prescriptions';
 import { formatPhone } from '../../lib/phone';
 import { describeAttentionEvolution, describeScoreDiff } from '../../domain/evolution';
+import { buildComparisonRows, groupPhotosByVisit } from '../../domain/photoEvolution';
 import { StepAnamnesis } from '../visits/steps/StepAnamnesis';
 import { PrescriptionModal } from './PrescriptionModal';
 import { formatDateBR, todayIso } from '../../lib/dates';
@@ -40,6 +41,9 @@ export function PatientRecordPage() {
   const [generatingInvite, setGeneratingInvite] = useState(false);
   const [compareMode, setCompareMode] = useState(false);
   const [comparePhotoIds, setComparePhotoIds] = useState<string[]>([]);
+  // Modo "Ver evolução": pares de atendimentos com foto (índice 0 = mais recente × anterior).
+  const [evolutionMode, setEvolutionMode] = useState(false);
+  const [evolutionPairIndex, setEvolutionPairIndex] = useState(0);
   const [loadError, setLoadError] = useState('');
   const [preAnamnesis, setPreAnamnesis] = useState<PreAnamnesis | null>(null);
   const [reviewedAnamnesis, setReviewedAnamnesis] = useState<Anamnesis | null>(null);
@@ -166,6 +170,11 @@ export function PatientRecordPage() {
   const latestVisit = visits[0];
   const hasDataConsent = consents.some((c) => c.type === 'dados' && c.agreed);
   const hasImageConsent = consents.some((c) => c.type === 'imagem' && c.agreed);
+  const photoGroups = groupPhotosByVisit(photos, new Map(visits.map((v) => [v.id, v.date])));
+  const evolutionPairCount = Math.max(photoGroups.length - 1, 0);
+  const safePairIndex = Math.min(evolutionPairIndex, Math.max(evolutionPairCount - 1, 0));
+  const newerGroup = photoGroups[safePairIndex];
+  const olderGroup = photoGroups[safePairIndex + 1];
 
   return (
     <div>
@@ -383,8 +392,89 @@ export function PatientRecordPage() {
         <div className="card">
           {photos.length === 0 ? (
             <div className="empty-state">Nenhuma foto registrada.</div>
+          ) : evolutionMode && newerGroup && olderGroup ? (
+            <>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+                <button className="btn btn-outline btn-sm" onClick={() => setEvolutionMode(false)}>
+                  ← Voltar
+                </button>
+                <p className="hint" style={{ margin: 0 }}>
+                  Comparação {safePairIndex + 1} de {evolutionPairCount}
+                </p>
+              </div>
+
+              <div className="photo-compare-header">
+                <div>
+                  <strong>Mais recente</strong>
+                  <br />
+                  <span className="hint">{formatDateBR(newerGroup.date)}</span>
+                </div>
+                <div>
+                  <strong>Anterior</strong>
+                  <br />
+                  <span className="hint">{formatDateBR(olderGroup.date)}</span>
+                </div>
+              </div>
+
+              {buildComparisonRows(newerGroup, olderGroup).map((row) => (
+                <div key={row.key} style={{ marginBottom: 16 }}>
+                  <div className="hint" style={{ marginBottom: 6 }}>{row.label}</div>
+                  <div className="photo-compare-pair">
+                    {[row.newer, row.older].map((p, i) => (
+                      <figure key={i} className="photo-compare-item">
+                        {p ? (
+                          <>
+                            <img src={p.url} alt={p.caption ?? ''} />
+                            <figcaption>
+                              <strong>{formatDateBR(i === 0 ? newerGroup.date : olderGroup.date)}</strong>
+                              <br />
+                              {p.caption || '—'}
+                            </figcaption>
+                          </>
+                        ) : (
+                          <div className="photo-compare-empty">Sem foto deste lado neste atendimento</div>
+                        )}
+                      </figure>
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+              {evolutionPairCount > 1 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                  <button
+                    className="btn btn-outline btn-sm"
+                    disabled={safePairIndex >= evolutionPairCount - 1}
+                    onClick={() => setEvolutionPairIndex(safePairIndex + 1)}
+                  >
+                    ← Mais antigos
+                  </button>
+                  <button
+                    className="btn btn-outline btn-sm"
+                    disabled={safePairIndex === 0}
+                    onClick={() => setEvolutionPairIndex(safePairIndex - 1)}
+                  >
+                    Mais recentes →
+                  </button>
+                </div>
+              )}
+            </>
           ) : (
             <>
+              {photoGroups.length >= 2 && (
+                <button
+                  className="btn btn-secondary btn-block"
+                  style={{ marginBottom: 12 }}
+                  onClick={() => {
+                    setEvolutionMode(true);
+                    setEvolutionPairIndex(0);
+                    setCompareMode(false);
+                    setComparePhotoIds([]);
+                  }}
+                >
+                  📊 Ver evolução
+                </button>
+              )}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
                 <p className="hint" style={{ margin: 0 }}>
                   {compareMode ? 'Selecione duas fotos para comparar lado a lado.' : `${photos.length} foto${photos.length === 1 ? '' : 's'} registrada${photos.length === 1 ? '' : 's'}.`}

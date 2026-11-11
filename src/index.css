@@ -923,6 +923,51 @@ button.stat-card .stat-value {
   border: 1px solid var(--color-border);
 }
 
+/* Comparador de evolução fotográfica (aba Fotos do prontuário) */
+.photo-compare-header,
+.photo-compare-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.photo-compare-header {
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.photo-compare-item {
+  margin: 0;
+}
+
+.photo-compare-item img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  display: block;
+}
+
+.photo-compare-item figcaption {
+  font-size: 12px;
+  margin-top: 6px;
+  text-align: center;
+}
+
+.photo-compare-empty {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 8px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
 .tabs {
   display: flex;
   gap: 4px;

@@ -27,6 +27,7 @@ import {
   demoPatientAccount,
   demoPatientProfessionalLinks,
   demoPatients,
+  demoPhotos,
   demoPreAnamneses,
   demoNotifications,
   demoPrescriptionAdherence,
@@ -49,7 +50,7 @@ import { newPrescriptionMessage } from '../domain/prescriptions';
 let patients: Patient[] = demoPatients.map((p) => ({ ...p }));
 let visits: Visit[] = demoVisits.map((v) => ({ ...v }));
 let consents: Consent[] = demoConsents.map((c) => ({ ...c }));
-let photos: PatientPhoto[] = [];
+let photos: PatientPhoto[] = demoPhotos.map((p) => ({ ...p }));
 const professionals = new Map<string, Professional>([
   [DEMO_PROFESSIONAL_UID, demoProfessional],
   ...demoProfessionals.map((p) => [p.uid, p] as const),
