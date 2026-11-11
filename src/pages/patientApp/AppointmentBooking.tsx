@@ -6,6 +6,8 @@ import { cancelAppointment, confirmAppointment, listOccupiedSlots, reserveSlot }
 import { buildCalendarDays, generateDaySlots, removeBlockedSlots, weekdayFromDate } from '../../domain/availability';
 import type { Appointment, Availability } from '../../types';
 import { formatDateBR } from '../../lib/dates';
+import { assertOnline, useReloadOnReconnect, type LoadStatus } from '../../lib/network';
+import { LoadFailedNotice } from '../../components/ui/LoadFailedNotice';
 
 interface Props {
   onClose: () => void;
@@ -23,7 +25,8 @@ function formatCountdown(seconds: number): string {
 export function AppointmentBooking({ onClose, onBooked }: Props) {
   const { patientAccount, professional } = useAuth();
   const [availability, setAvailability] = useState<Availability | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState<LoadStatus>('loading');
+  const { online, reloadKey, retry } = useReloadOnReconnect();
   const [step, setStep] = useState<Step>('data');
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [freeSlots, setFreeSlots] = useState<string[]>([]);
@@ -35,11 +38,22 @@ export function AppointmentBooking({ onClose, onBooked }: Props) {
 
   useEffect(() => {
     if (!patientAccount || !patientAccount.professionalId) return;
-    getAvailability(patientAccount.professionalId).then((a) => {
-      setAvailability(a);
-      setLoading(false);
-    });
-  }, [patientAccount]);
+    let cancelled = false;
+    (async () => {
+      try {
+        assertOnline();
+        const a = await getAvailability(patientAccount.professionalId);
+        if (cancelled) return;
+        setAvailability(a);
+        setStatus('ready');
+      } catch {
+        if (!cancelled) setStatus((prev) => (prev === 'ready' ? prev : 'failed'));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [patientAccount, reloadKey]);
 
   const calendarDays = useMemo(() => (availability ? buildCalendarDays(availability) : []), [availability]);
 
@@ -123,7 +137,18 @@ export function AppointmentBooking({ onClose, onBooked }: Props) {
     );
   }
 
-  if (loading) return <p>Carregando…</p>;
+  if (status === 'loading') return <p>Carregando…</p>;
+  if (status === 'failed') {
+    return (
+      <LoadFailedNotice
+        online={online}
+        onRetry={() => {
+          setStatus('loading');
+          retry();
+        }}
+      />
+    );
+  }
 
   if (!availability) {
     return (

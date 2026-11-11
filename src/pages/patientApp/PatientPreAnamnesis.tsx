@@ -6,6 +6,8 @@ import { emptyAnamnesis } from '../../domain/factories';
 import { StepAnamnesis } from '../visits/steps/StepAnamnesis';
 import type { Anamnesis, PreAnamnesis } from '../../types';
 import { formatDateBR } from '../../lib/dates';
+import { assertOnline, useReloadOnReconnect, type LoadStatus } from '../../lib/network';
+import { LoadFailedNotice } from '../../components/ui/LoadFailedNotice';
 
 type ViewMode = 'summary' | 'form';
 
@@ -14,16 +16,33 @@ export function PatientPreAnamnesisPage() {
   const [pre, setPre] = useState<PreAnamnesis | null>(null);
   const [draft, setDraft] = useState<Anamnesis>(emptyAnamnesis());
   const [viewMode, setViewMode] = useState<ViewMode>('summary');
-  const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState<LoadStatus>('loading');
   const [saving, setSaving] = useState(false);
+  const { online, reloadKey, retry } = useReloadOnReconnect();
 
   useEffect(() => {
     if (!patientAccount || !patientAccount.professionalId) return;
-    getPreAnamnesisForPatient(patientAccount.patientId, patientAccount.professionalId).then((existing) => {
-      setPre(existing);
-      setLoading(false);
-    });
-  }, [patientAccount]);
+    // Não recarrega com o formulário aberto — apagaria respostas ainda não enviadas.
+    if (viewMode === 'form') return;
+    let cancelled = false;
+    (async () => {
+      try {
+        assertOnline();
+        const existing = await getPreAnamnesisForPatient(patientAccount.patientId, patientAccount.professionalId);
+        if (cancelled) return;
+        setPre(existing);
+        setStatus('ready');
+      } catch {
+        // Falha numa recarga com dados já na tela mantém os dados.
+        if (!cancelled) setStatus((prev) => (prev === 'ready' ? prev : 'failed'));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // viewMode fica de fora de propósito: só patientAccount/reconexão disparam recarga.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patientAccount, reloadKey]);
 
   function startFilling() {
     setDraft(emptyAnamnesis());
@@ -85,7 +104,18 @@ export function PatientPreAnamnesisPage() {
     );
   }
 
-  if (loading) return <p>Carregando…</p>;
+  if (status === 'loading') return <p>Carregando…</p>;
+  if (status === 'failed') {
+    return (
+      <LoadFailedNotice
+        online={online}
+        onRetry={() => {
+          setStatus('loading');
+          retry();
+        }}
+      />
+    );
+  }
 
   // Formulário aberto — preenchimento inicial, edição (pendente) ou visualização (validada).
   if (viewMode === 'form') {

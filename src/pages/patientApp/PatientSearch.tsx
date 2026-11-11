@@ -11,6 +11,8 @@ import { hasActiveAvailability, summarizeAvailability } from '../../domain/avail
 import { SPECIALTY_OPTIONS, WEEKDAY_LABELS, WEEKDAYS } from '../../domain/factories';
 import type { Availability, ProfessionalProfile, Specialty } from '../../types';
 import { formatDateBR } from '../../lib/dates';
+import { assertOnline, useReloadOnReconnect, type LoadStatus } from '../../lib/network';
+import { LoadFailedNotice } from '../../components/ui/LoadFailedNotice';
 
 type FilterOption = 'todos' | 'disponivel' | Specialty;
 type SortOption = 'nome' | 'avaliacao';
@@ -38,7 +40,8 @@ export function PatientSearchPage() {
   const navigate = useNavigate();
   const [profiles, setProfiles] = useState<ProfessionalProfile[]>([]);
   const [availabilityByProfessional, setAvailabilityByProfessional] = useState<Record<string, Availability | null>>({});
-  const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState<LoadStatus>('loading');
+  const { online, reloadKey, retry } = useReloadOnReconnect();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterOption>('todos');
   const [sort, setSort] = useState<SortOption>('nome');
@@ -56,15 +59,27 @@ export function PatientSearchPage() {
   const [switchResult, setSwitchResult] = useState<{ shared: boolean } | null>(null);
 
   useEffect(() => {
-    listPublicProfessionalProfiles().then(async (list) => {
-      setProfiles(list);
-      const entries = await Promise.all(
-        list.map(async (p) => [p.professionalId, await getAvailability(p.professionalId)] as const),
-      );
-      setAvailabilityByProfessional(Object.fromEntries(entries));
-      setLoading(false);
-    });
-  }, []);
+    let cancelled = false;
+    (async () => {
+      try {
+        assertOnline();
+        const list = await listPublicProfessionalProfiles();
+        const entries = await Promise.all(
+          list.map(async (p) => [p.professionalId, await getAvailability(p.professionalId)] as const),
+        );
+        if (cancelled) return;
+        setProfiles(list);
+        setAvailabilityByProfessional(Object.fromEntries(entries));
+        setStatus('ready');
+      } catch {
+        // Falha numa recarga com dados já na tela mantém os dados.
+        if (!cancelled) setStatus((prev) => (prev === 'ready' ? prev : 'failed'));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadKey]);
 
   const filtered = useMemo(() => {
     let result = profiles;
@@ -163,7 +178,18 @@ export function PatientSearchPage() {
     }
   }
 
-  if (loading) return <p>Carregando…</p>;
+  if (status === 'loading') return <p>Carregando…</p>;
+  if (status === 'failed') {
+    return (
+      <LoadFailedNotice
+        online={online}
+        onRetry={() => {
+          setStatus('loading');
+          retry();
+        }}
+      />
+    );
+  }
 
   if (selected) {
     const availability = availabilityByProfessional[selected.professionalId] ?? null;

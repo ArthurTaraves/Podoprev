@@ -13,6 +13,7 @@ import { getProfessional, saveProfessional } from '../firebase/professionals';
 import { getPatientAccount, savePatientAccount } from '../firebase/patientAccounts';
 import { redeemPatientInvite } from '../firebase/patientInvites';
 import { updatePatient, createPatient } from '../firebase/patients';
+import { clearPatientOfflineCache, loadCachedPatientAccount, saveCachedPatientAccount } from '../lib/offlineCache';
 import { demoPatientAccount, demoProfessional } from '../demo/seed';
 import { demoRegisterPatientWithoutInvite } from '../demo/store';
 import type { PatientAccount, Professional } from '../types';
@@ -57,6 +58,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // perfil em paralelo e às vezes vence a corrida contra a escrita — encontra o
   // documento ainda inexistente e zera o papel do usuário recém-cadastrado.
   const registeringRef = useRef(false);
+  // true quando o papel atual veio do cache local (app aberto sem internet).
+  const resolvedOfflineRef = useRef(false);
 
   useEffect(() => {
     // Sem projeto Firebase real, o listener nunca teria um usuário para reportar —
@@ -70,13 +73,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       else setLoading(false);
       return;
     }
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setUser(firebaseUser);
-      if (registeringRef.current) {
-        setLoading(false);
-        return;
-      }
-      if (firebaseUser) {
+    // Resolve o papel (profissional/paciente) lendo o perfil no Firestore. Sem
+    // internet essas leituras falham — sem tratamento, `loading` ficaria preso em
+    // true ("Carregando…" eterno). Offline, o paciente entra com a cópia local da
+    // própria conta (modo offline) e o papel é reconfirmado no Firestore assim que
+    // a conexão voltar (listener 'online' abaixo). Profissional não tem cache.
+    async function resolveRole(firebaseUser: User) {
+      try {
         const profile = await getProfessional(firebaseUser.uid);
         if (profile) {
           setProfessional(profile);
@@ -84,10 +87,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setRole('professional');
         } else {
           const account = await getPatientAccount(firebaseUser.uid);
+          if (account) saveCachedPatientAccount(account);
           setPatientAccount(account);
           setProfessional(null);
           setRole(account ? 'patient' : null);
         }
+        resolvedOfflineRef.current = false;
+      } catch {
+        const cached = loadCachedPatientAccount(firebaseUser.uid);
+        setPatientAccount(cached);
+        setProfessional(null);
+        setRole(cached ? 'patient' : null);
+        resolvedOfflineRef.current = true;
+      }
+    }
+
+    let currentUser: User | null = null;
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      currentUser = firebaseUser;
+      setUser(firebaseUser);
+      if (registeringRef.current) {
+        setLoading(false);
+        return;
+      }
+      if (firebaseUser) {
+        await resolveRole(firebaseUser);
       } else {
         setProfessional(null);
         setPatientAccount(null);
@@ -95,7 +119,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       setLoading(false);
     });
-    return unsubscribe;
+
+    const handleOnline = () => {
+      if (currentUser && resolvedOfflineRef.current) void resolveRole(currentUser);
+    };
+    window.addEventListener('online', handleOnline);
+    return () => {
+      unsubscribe();
+      window.removeEventListener('online', handleOnline);
+    };
   }, []);
 
   // Sem projeto Firebase real, autentica localmente com dados fictícios só para
@@ -234,10 +266,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function refreshPatientAccount() {
     if (!user) return;
     const account = await getPatientAccount(user.uid);
+    if (account && isFirebaseConfigured) saveCachedPatientAccount(account);
     setPatientAccount(account);
   }
 
   async function logout() {
+    // Não deixa no aparelho os dados salvos para uso offline (aparelho compartilhado).
+    if (user) clearPatientOfflineCache(user.uid, patientAccount?.patientId);
     if (!isFirebaseConfigured) {
       setUser(null);
       setProfessional(null);

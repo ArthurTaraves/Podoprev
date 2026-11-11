@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Disclaimer } from '../../components/Disclaimer';
@@ -15,6 +15,9 @@ import {
   totalAdherence,
 } from '../../domain/prescriptions';
 import { formatDateBR, todayIso as getTodayIso } from '../../lib/dates';
+import { assertOnline, useReloadOnReconnect, type LoadStatus } from '../../lib/network';
+import { loadCachedPrescriptions, saveCachedPrescriptions } from '../../lib/offlineCache';
+import { LoadFailedNotice } from '../../components/ui/LoadFailedNotice';
 import {
   getReminderPermission,
   hasRemindersForThisDevice,
@@ -82,34 +85,70 @@ export function PatientCarePage() {
   const [markingId, setMarkingId] = useState<string | null>(null);
   const [markErrorId, setMarkErrorId] = useState<string | null>(null);
   const [done, setDone] = useState<Record<string, boolean>>({});
-  const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState<LoadStatus>('loading');
+  // Data em que os cuidados exibidos foram salvos no aparelho (modo offline);
+  // null = dados vindos agora do servidor.
+  const [cachedAt, setCachedAt] = useState<number | null>(null);
+  const { online, reloadKey, retry } = useReloadOnReconnect();
+  const hasDataRef = useRef(false);
 
   useEffect(() => {
     if (!patientAccount) return;
-    Promise.all([
-      listVisitsByPatient(patientAccount.patientId, patientAccount.professionalId),
-      listSwitchHistoryByPatient(patientAccount.patientId),
-      patientAccount.professionalId
-        ? listPrescriptionsByPatient(patientAccount.patientId, patientAccount.professionalId)
-        : Promise.resolve([]),
-    ]).then(async ([visits, switches, allPrescriptions]) => {
-      const latest = visits[0];
+    let cancelled = false;
+    void (async () => {
       const todayIso = getTodayIso();
-      const active = allPrescriptions.filter((p) => isPrescriptionActive(p, todayIso));
-      const careInstructions = latest?.careInstructions ?? [];
-      setInstructions(careInstructions);
-      setVisitDate(latest?.date ?? null);
-      setRecentlySwitched(switches.length > 0);
-      setPrescriptions(active);
-      const ended = allPrescriptions
-        .filter((p) => prescriptionStatus(p, todayIso) === 'encerrada')
-        .sort((a, b) => (prescriptionEffectiveEndDate(b) ?? '').localeCompare(prescriptionEffectiveEndDate(a) ?? ''));
-      const endedDays = await Promise.all(ended.map((p) => listAdherenceDays(p.id)));
-      setEndedPrescriptions(ended);
-      setEndedAdherence(Object.fromEntries(ended.map((p, i) => [p.id, new Set(endedDays[i])])));
-      const doneFlags = await Promise.all(active.map((p) => isPrescriptionDoneOn(p.id, todayIso)));
-      setDoneToday(new Set(active.filter((_, i) => doneFlags[i]).map((p) => p.id)));
-      setLoading(false);
+      let active: Prescription[];
+      let careInstructions: CareInstruction[];
+      try {
+        assertOnline();
+        const [visits, switches, allPrescriptions] = await Promise.all([
+          listVisitsByPatient(patientAccount.patientId, patientAccount.professionalId),
+          listSwitchHistoryByPatient(patientAccount.patientId),
+          patientAccount.professionalId
+            ? listPrescriptionsByPatient(patientAccount.patientId, patientAccount.professionalId)
+            : Promise.resolve([]),
+        ]);
+        const latest = visits[0];
+        active = allPrescriptions.filter((p) => isPrescriptionActive(p, todayIso));
+        careInstructions = latest?.careInstructions ?? [];
+        const ended = allPrescriptions
+          .filter((p) => prescriptionStatus(p, todayIso) === 'encerrada')
+          .sort((a, b) => (prescriptionEffectiveEndDate(b) ?? '').localeCompare(prescriptionEffectiveEndDate(a) ?? ''));
+        const [endedDays, doneFlags] = await Promise.all([
+          Promise.all(ended.map((p) => listAdherenceDays(p.id))),
+          Promise.all(active.map((p) => isPrescriptionDoneOn(p.id, todayIso))),
+        ]);
+        if (cancelled) return;
+        // Modo offline: guarda no aparelho os cuidados ativos para consulta sem internet.
+        saveCachedPrescriptions(patientAccount.patientId, { prescriptions: active, instructions: careInstructions, visitDate: latest?.date ?? null });
+        setInstructions(careInstructions);
+        setVisitDate(latest?.date ?? null);
+        setRecentlySwitched(switches.length > 0);
+        setPrescriptions(active);
+        setEndedPrescriptions(ended);
+        setEndedAdherence(Object.fromEntries(ended.map((p, i) => [p.id, new Set(endedDays[i])])));
+        setDoneToday(new Set(active.filter((_, i) => doneFlags[i]).map((p) => p.id)));
+        setCachedAt(null);
+        hasDataRef.current = true;
+        setStatus('ready');
+      } catch {
+        if (cancelled) return;
+        // Sem conexão: dados já na tela continuam; senão, tenta a cópia salva no aparelho.
+        if (hasDataRef.current) return;
+        const cached = loadCachedPrescriptions(patientAccount.patientId);
+        if (!cached) {
+          setStatus('failed');
+          return;
+        }
+        // Uma prescrição salva pode ter terminado desde então.
+        setPrescriptions(cached.prescriptions.filter((p) => isPrescriptionActive(p, todayIso)));
+        setInstructions(cached.instructions);
+        setVisitDate(cached.visitDate);
+        setCachedAt(cached.savedAt);
+        hasDataRef.current = true;
+        setStatus('ready');
+        return;
+      }
 
       // Abrir a aba Cuidados conta como ter visto os avisos de nova prescrição.
       try {
@@ -129,11 +168,15 @@ export function PatientCarePage() {
       if (hasRemindersForThisDevice(active, careInstructions) && shouldAskPermissionAutomatically(permission)) {
         permission = await requestReminderPermission();
       }
+      if (cancelled) return;
       setReminderStatus(permission);
       // Agenda (ou limpa, se não houver mais nada) os lembretes deste dispositivo.
       await scheduleReminders(active, careInstructions);
-    });
-  }, [patientAccount]);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [patientAccount, reloadKey]);
 
   async function handleEnableReminders() {
     const permission = await requestReminderPermission();
@@ -160,13 +203,33 @@ export function PatientCarePage() {
     setDone((prev) => ({ ...prev, [id]: !prev[id] }));
   }
 
-  if (loading) return <p>Carregando…</p>;
+  if (status === 'loading') return <p>Carregando…</p>;
+  if (status === 'failed') {
+    return (
+      <LoadFailedNotice
+        online={online}
+        showCareLink={false}
+        onRetry={() => {
+          setStatus('loading');
+          retry();
+        }}
+      />
+    );
+  }
 
   const todayIso = getTodayIso();
+  const offlineView = cachedAt !== null;
 
   return (
     <div>
       <h1 style={{ fontSize: 20 }}>Cuidados de hoje</h1>
+
+      {offlineView && (
+        <p className="hint" style={{ marginTop: 0, marginBottom: 16 }}>
+          📶 Cuidados salvos neste aparelho em {formatDateBR(cachedAt)} às{' '}
+          {new Date(cachedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}. Eles serão atualizados quando a conexão voltar.
+        </p>
+      )}
 
       {prescriptions.length > 0 && (
         <section style={{ marginBottom: 20 }}>
@@ -189,7 +252,11 @@ export function PatientCarePage() {
                         {remaining}
                       </p>
                     )}
-                    {doneToday.has(prescription.id) ? (
+                    {offlineView ? (
+                      <p className="hint" style={{ marginTop: 8, marginBottom: 0, fontSize: 12 }}>
+                        Marcar como feito fica disponível quando a conexão voltar.
+                      </p>
+                    ) : doneToday.has(prescription.id) ? (
                       <button
                         type="button"
                         className="btn btn-sm"
@@ -265,7 +332,7 @@ export function PatientCarePage() {
         </section>
       )}
 
-      {(prescriptions.length > 0 || instructions.length > 0) && (
+      {!offlineView && (prescriptions.length > 0 || instructions.length > 0) && (
         <ReminderCard status={reminderStatus} native={isNativeApp()} onEnable={handleEnableReminders} />
       )}
 

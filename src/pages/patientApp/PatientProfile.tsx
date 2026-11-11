@@ -10,34 +10,59 @@ import type { Consent, Patient } from '../../types';
 import { calculateAge } from '../../domain/riskScore';
 import { formatPhone } from '../../lib/phone';
 import { formatDateBR } from '../../lib/dates';
+import { assertOnline, useReloadOnReconnect, type LoadStatus } from '../../lib/network';
+import { LoadFailedNotice } from '../../components/ui/LoadFailedNotice';
 
 export function PatientProfilePage() {
   const { patientAccount } = useAuth();
   const [patient, setPatient] = useState<Patient | null>(null);
   const [consents, setConsents] = useState<Consent[]>([]);
   const [professionalNames, setProfessionalNames] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState<LoadStatus>('loading');
+  const { online, reloadKey, retry } = useReloadOnReconnect();
 
   useEffect(() => {
     if (!patientAccount) return;
+    let cancelled = false;
     (async () => {
-      const [p, professionalIds] = await Promise.all([
-        getPatient(patientAccount.patientId),
-        listAllProfessionalIdsForPatient(patientAccount.patientId, patientAccount.professionalId),
-      ]);
-      const [consentLists, profileEntries] = await Promise.all([
-        Promise.all(professionalIds.map((profId) => listConsentsByPatient(patientAccount.patientId, profId))),
-        // profId vazio = paciente cadastrado sem convite, ainda sem profissional (não há perfil a ler).
-        Promise.all(professionalIds.map(async (profId) => [profId, profId ? (await getProfessionalProfile(profId))?.displayName ?? null : null] as const)),
-      ]);
-      setPatient(p);
-      setConsents(mergeById(consentLists.flat()).sort((a, b) => b.agreedAt - a.agreedAt));
-      setProfessionalNames(Object.fromEntries(profileEntries.filter(([, name]) => name != null) as [string, string][]));
-      setLoading(false);
+      try {
+        assertOnline();
+        const [p, professionalIds] = await Promise.all([
+          getPatient(patientAccount.patientId),
+          listAllProfessionalIdsForPatient(patientAccount.patientId, patientAccount.professionalId),
+        ]);
+        const [consentLists, profileEntries] = await Promise.all([
+          Promise.all(professionalIds.map((profId) => listConsentsByPatient(patientAccount.patientId, profId))),
+          // profId vazio = paciente cadastrado sem convite, ainda sem profissional (não há perfil a ler).
+          Promise.all(professionalIds.map(async (profId) => [profId, profId ? (await getProfessionalProfile(profId))?.displayName ?? null : null] as const)),
+        ]);
+        if (cancelled) return;
+        setPatient(p);
+        setConsents(mergeById(consentLists.flat()).sort((a, b) => b.agreedAt - a.agreedAt));
+        setProfessionalNames(Object.fromEntries(profileEntries.filter(([, name]) => name != null) as [string, string][]));
+        setStatus('ready');
+      } catch {
+        // Falha numa recarga com dados já na tela mantém os dados.
+        if (!cancelled) setStatus((prev) => (prev === 'ready' ? prev : 'failed'));
+      }
     })();
-  }, [patientAccount]);
+    return () => {
+      cancelled = true;
+    };
+  }, [patientAccount, reloadKey]);
 
-  if (loading) return <p>Carregando…</p>;
+  if (status === 'loading') return <p>Carregando…</p>;
+  if (status === 'failed') {
+    return (
+      <LoadFailedNotice
+        online={online}
+        onRetry={() => {
+          setStatus('loading');
+          retry();
+        }}
+      />
+    );
+  }
   if (!patient) return <p>Não encontramos seus dados. Fale com seu podólogo.</p>;
 
   // Um paciente que já teve mais de um profissional pode ter mais de um termo do

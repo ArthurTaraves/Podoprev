@@ -13,6 +13,8 @@ import { listAppointmentsByPatient } from '../../firebase/appointments';
 import type { Appointment, Patient, Prescription, ProfessionalProfile, Visit } from '../../types';
 import { RiskBadge } from '../../components/ui/RiskBadge';
 import { daysBetween, formatDateBR, todayIso } from '../../lib/dates';
+import { assertOnline, useReloadOnReconnect, type LoadStatus } from '../../lib/network';
+import { LoadFailedNotice } from '../../components/ui/LoadFailedNotice';
 
 const FRIENDLY_MESSAGE: Record<Visit['risk']['level'], string> = {
   baixo: 'Seus pés estão bem! Continue com os cuidados de rotina.',
@@ -54,33 +56,46 @@ export function PatientHomePage() {
   const [recentlySwitched, setRecentlySwitched] = useState(false);
   const [activePrescriptions, setActivePrescriptions] = useState<Prescription[]>([]);
   const [nextAppointment, setNextAppointment] = useState<Appointment | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState<LoadStatus>('loading');
+  const { online, reloadKey, retry } = useReloadOnReconnect();
 
   useEffect(() => {
     // Sem profissional vinculado (cadastro sem convite) não há o que carregar —
     // o perfil do profissional nem pode ser lido com id vazio.
     if (!patientAccount || !patientAccount.professionalId) return;
-    Promise.all([
-      getPatient(patientAccount.patientId),
-      listVisitsByPatient(patientAccount.patientId, patientAccount.professionalId),
-      getProfessionalProfile(patientAccount.professionalId),
-      listSwitchHistoryByPatient(patientAccount.patientId),
-      listPrescriptionsByPatient(patientAccount.patientId, patientAccount.professionalId),
-      listAppointmentsByPatient(patientAccount.patientId, patientAccount.professionalId),
-    ]).then(([p, visits, profile, switches, prescriptions, appointments]) => {
-      setPatient(p);
-      setLatestVisit(visits[0] ?? null);
-      setProfessionalProfile(profile);
-      setRecentlySwitched(switches.length > 0);
-      const today = todayIso();
-      setActivePrescriptions(prescriptions.filter((prescription) => isPrescriptionActive(prescription, today)));
-      const upcoming = appointments
-        .filter((appointment) => appointment.status === 'confirmado' && appointment.date >= today)
-        .sort((a, b) => `${a.date} ${a.startTime}`.localeCompare(`${b.date} ${b.startTime}`));
-      setNextAppointment(upcoming[0] ?? null);
-      setLoading(false);
-    });
-  }, [patientAccount]);
+    let cancelled = false;
+    void (async () => {
+      try {
+        assertOnline();
+        const [p, visits, profile, switches, prescriptions, appointments] = await Promise.all([
+          getPatient(patientAccount.patientId),
+          listVisitsByPatient(patientAccount.patientId, patientAccount.professionalId),
+          getProfessionalProfile(patientAccount.professionalId),
+          listSwitchHistoryByPatient(patientAccount.patientId),
+          listPrescriptionsByPatient(patientAccount.patientId, patientAccount.professionalId),
+          listAppointmentsByPatient(patientAccount.patientId, patientAccount.professionalId),
+        ]);
+        if (cancelled) return;
+        setPatient(p);
+        setLatestVisit(visits[0] ?? null);
+        setProfessionalProfile(profile);
+        setRecentlySwitched(switches.length > 0);
+        const today = todayIso();
+        setActivePrescriptions(prescriptions.filter((prescription) => isPrescriptionActive(prescription, today)));
+        const upcoming = appointments
+          .filter((appointment) => appointment.status === 'confirmado' && appointment.date >= today)
+          .sort((a, b) => `${a.date} ${a.startTime}`.localeCompare(`${b.date} ${b.startTime}`));
+        setNextAppointment(upcoming[0] ?? null);
+        setStatus('ready');
+      } catch {
+        // Falha numa recarga com dados já na tela mantém os dados.
+        if (!cancelled) setStatus((prev) => (prev === 'ready' ? prev : 'failed'));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [patientAccount, reloadKey]);
 
   if (patientAccount && !patientAccount.professionalId) {
     return (
@@ -92,7 +107,18 @@ export function PatientHomePage() {
     );
   }
 
-  if (loading) return <p>Carregando…</p>;
+  if (status === 'loading') return <p>Carregando…</p>;
+  if (status === 'failed') {
+    return (
+      <LoadFailedNotice
+        online={online}
+        onRetry={() => {
+          setStatus('loading');
+          retry();
+        }}
+      />
+    );
+  }
   if (!patient) return <p>Não encontramos seus dados. Fale com seu podólogo.</p>;
 
   const referenceDate = nextAppointment?.date ?? latestVisit?.returnDate ?? null;

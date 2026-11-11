@@ -13,6 +13,8 @@ import { RiskBadge } from '../../components/ui/RiskBadge';
 import { generateVisitReportPdf } from '../../lib/pdf';
 import { AppointmentBooking } from './AppointmentBooking';
 import { formatDateBR } from '../../lib/dates';
+import { assertOnline, useReloadOnReconnect, type LoadStatus } from '../../lib/network';
+import { LoadFailedNotice } from '../../components/ui/LoadFailedNotice';
 
 // Helpers puros de data/duração — só apresentação, nenhum dado clínico novo.
 const MES_ABREV = ['jan.', 'fev.', 'mar.', 'abr.', 'mai.', 'jun.', 'jul.', 'ago.', 'set.', 'out.', 'nov.', 'dez.'];
@@ -50,23 +52,34 @@ export function PatientHistoryPage() {
   const [switchHistory, setSwitchHistory] = useState<SwitchHistoryEntry[]>([]);
   const [currentLinkConsented, setCurrentLinkConsented] = useState(false);
   const [revokingId, setRevokingId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState<LoadStatus>('loading');
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showBooking, setShowBooking] = useState(false);
+  const { online, reloadKey, retry } = useReloadOnReconnect();
 
   useEffect(() => {
     if (!patientAccount) return;
     // Sem profissional vinculado (cadastro sem convite) não há histórico a buscar.
     if (!patientAccount.professionalId) {
-      setLoading(false);
+      setStatus('ready');
       return;
     }
-    load();
-  }, [patientAccount]);
+    void loadSafely();
+  }, [patientAccount, reloadKey]);
+
+  // Falha numa recarga com dados já na tela mantém os dados.
+  async function loadSafely() {
+    try {
+      await load();
+    } catch {
+      setStatus((prev) => (prev === 'ready' ? prev : 'failed'));
+    }
+  }
 
   async function load() {
     if (!patientAccount) return;
+    assertOnline();
     const [p, professionalIds, history, currentLink] = await Promise.all([
       getPatient(patientAccount.patientId),
       listAllProfessionalIdsForPatient(patientAccount.patientId, patientAccount.professionalId),
@@ -86,7 +99,7 @@ export function PatientHistoryPage() {
         .filter((appt) => appt.status === 'confirmado')
         .sort((x, y) => x.date.localeCompare(y.date) || x.startTime.localeCompare(y.startTime)),
     );
-    setLoading(false);
+    setStatus('ready');
   }
 
   async function handleRevoke(newProfessionalId: string) {
@@ -102,7 +115,7 @@ export function PatientHistoryPage() {
 
   function handleBooked() {
     setShowBooking(false);
-    load();
+    void loadSafely();
   }
 
   async function handleDownload(visit: Visit) {
@@ -115,7 +128,18 @@ export function PatientHistoryPage() {
     }
   }
 
-  if (loading) return <p>Carregando…</p>;
+  if (status === 'loading') return <p>Carregando…</p>;
+  if (status === 'failed') {
+    return (
+      <LoadFailedNotice
+        online={online}
+        onRetry={() => {
+          setStatus('loading');
+          retry();
+        }}
+      />
+    );
+  }
 
   if (!patientAccount?.professionalId) {
     return (

@@ -14,12 +14,14 @@ interface Props {
   onLogout: () => void;
   children: ReactNode;
   banner?: string;
+  /** Texto do aviso de "sem conexão" (só o app do paciente usa). */
+  offlineBanner?: string;
 }
 
 // Casca única de app mobile, reaproveitada tanto pelo profissional (AppShell)
 // quanto pelo paciente (PatientShell) — todo o PodoPrev roda como um único app
 // instalado, com telas mobile de verdade em vez de layout de site desktop.
-export function MobileShell({ title, navItems, onLogout, children, banner }: Props) {
+export function MobileShell({ title, navItems, onLogout, children, banner, offlineBanner }: Props) {
   return (
     <div className="mobile-shell">
       <header className="mobile-topbar">
@@ -30,6 +32,11 @@ export function MobileShell({ title, navItems, onLogout, children, banner }: Pro
       </header>
 
       {banner && <div className="demo-banner">{banner}</div>}
+      {offlineBanner && (
+        <div className="offline-banner" role="status">
+          {offlineBanner}
+        </div>
+      )}
 
       <main className="mobile-content">{children}</main>
 
